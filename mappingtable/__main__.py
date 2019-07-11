@@ -12,19 +12,23 @@ import graycode
 
 
 
-def codeprojection():
+def graycode_projection(proj_list, path):
 
     # THETA
-    #theta = theta_s.ThetaS()
+    theta = theta_s.ThetaS()
     
     # display and caputure
+    
+    URI_list = []
+    filename_list = []
+    
     for n, proj in enumerate(proj_list):
         
         # grey color
         grey = proj.gen_canvas()
         grey[:] = GRAY_VALUE
         disp_img = proj.add_base(grey)
-        cv2.imshow('gray', disp_img)
+        cv2.imshow('SPM', disp_img)
         
         if n == 0:
             print('Ready. Press any key to start.')
@@ -34,39 +38,54 @@ def codeprojection():
             print('--------------------------------')
         else:
             cv2.waitKey(10)
-        
-        
+                
         # adjust exposure
         print('Adjusting exposure...')
-        #theta.adjust_exposure()
-        time.sleep(0.1)
+        filename = path + 'auto_proj%d.jpg' % (n + 1)
+        iso, shutter = theta.auto_adjust_exposure(filename)
+        print('ISO:', iso, ', Shutter:', shutter)
         
+        
+        URI = theta.take()
+        URI_list.append(URI)
+        filename = 'gray_proj%d_grey.jpg' % (n + 1)
+        filename_list.append(filename)
+
         # x-axis
         imgs, nbits = graycode.graycodepattern(proj.aspect, axis='x', BGR=True)
         for i in range(len(imgs)):
             # display
             disp_img = proj.add_base(imgs[i])
-            cv2.imshow('gray', disp_img)
+            cv2.imshow('SPM', disp_img)
             cv2.waitKey(10)
             time.sleep(0.1)
             # capture
-            #uri = theta.take()
+            URI = theta.take()
+            URI_list.append(URI)
+            filename = 'gray_proj%d_x%d.jpg' % (n + 1, i)
+            filename_list.append(filename)
             
         # y-axis
         imgs, nbits = graycode.graycodepattern(proj.aspect, axis='y', BGR=True)
         for i in range(len(imgs)):
             # display
             disp_img = proj.add_base(imgs[i])
-            cv2.imshow('gray', disp_img)
+            cv2.imshow('SPM', disp_img)
             cv2.waitKey(10)
             time.sleep(0.1)
             # capture
-            #uri = theta.take()
-            
+            URI = theta.take()
+            URI_list.append(URI)
+            filename = 'gray_proj%d_y%d.jpg' % (n + 1, i)
+            filename_list.append(filename)
+    
     
     # save images
-    
+    for i in range(len(filename_list)):
+        theta.save(URI_list[i], path + filename_list[i])
         
+    
+
 
 
 
@@ -74,8 +93,8 @@ def codeprojection():
 if __name__ == '__main__':
     
    
-    cv2.namedWindow('gray', cv2.WINDOW_NORMAL)
-    cv2.setWindowProperty('gray', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+    cv2.namedWindow('SPM', cv2.WINDOW_NORMAL)
+    cv2.setWindowProperty('SPM', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
     GRAY_VALUE = 119
         
 
@@ -101,9 +120,12 @@ if __name__ == '__main__':
     # screen configuration
     screens = screen.set_config(path)
     
-    codeprojection()
+    # display & capture
+    graycode_projection(proj_list, path)
 
-
+    # analyse
+    
+    
 
 
 
