@@ -12,41 +12,10 @@ import graycode
 
 
 
+def codeprojection():
 
-cv2.namedWindow('gray', cv2.WINDOW_NORMAL)
-cv2.setWindowProperty('gray', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
-
-
-GRAY_VALUE = 119
-
-def main():
-    '''
-    parser = argparse.ArgumentParser()
-    parser.add_argument('arg1', help='path to working folder')
-    args = parser.parse_args()
-    
-    path = args.arg1
-    '''
-    path = '../../workfolder'
-    if path[-1] != '/':
-        path += '/'
-    if not os.path.isdir(path):
-        raise Exception('%s is not exists.' % path)
-    
-    
-
-    # projector configuration
-    proj_list = projector.set_config(path)
-    projector.inspect_projectors(proj_list)
-
-    # screen configuration
-    screens = screen.set_config(path)
-        
     # THETA
     #theta = theta_s.ThetaS()
-    
-    
-    
     
     # display and caputure
     for n, proj in enumerate(proj_list):
@@ -72,22 +41,31 @@ def main():
         #theta.adjust_exposure()
         time.sleep(0.1)
         
-        # graycode pattern
+        # x-axis
         imgs, nbits = graycode.graycodepattern(proj.aspect, axis='x', BGR=True)
         for i in range(len(imgs)):
+            # display
             disp_img = proj.add_base(imgs[i])
             cv2.imshow('gray', disp_img)
             cv2.waitKey(10)
             time.sleep(0.1)
+            # capture
+            #uri = theta.take()
             
+        # y-axis
         imgs, nbits = graycode.graycodepattern(proj.aspect, axis='y', BGR=True)
         for i in range(len(imgs)):
+            # display
             disp_img = proj.add_base(imgs[i])
             cv2.imshow('gray', disp_img)
             cv2.waitKey(10)
             time.sleep(0.1)
-        
-        # graycode
+            # capture
+            #uri = theta.take()
+            
+    
+    # save images
+    
         
 
 
@@ -95,5 +73,38 @@ def main():
 
 if __name__ == '__main__':
     
+   
+    cv2.namedWindow('gray', cv2.WINDOW_NORMAL)
+    cv2.setWindowProperty('gray', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+    GRAY_VALUE = 119
+        
 
-    main()
+    '''
+    parser = argparse.ArgumentParser()
+    parser.add_argument('arg1', help='path to working folder')
+    args = parser.parse_args()
+    
+    path = args.arg1
+    '''
+    path = '../../workfolder'
+    if path[-1] != '/':
+        path += '/'
+    if not os.path.isdir(path):
+        raise Exception('%s is not exists.' % path)
+    
+    
+
+    # projector configuration
+    proj_list = projector.set_config(path)
+    projector.inspect_projectors(proj_list)
+
+    # screen configuration
+    screens = screen.set_config(path)
+    
+    codeprojection()
+
+
+
+
+
+
