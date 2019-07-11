@@ -4,6 +4,7 @@ import argparse
 
 import util
 import projector
+import screen
 import theta_s
 
 
@@ -26,10 +27,14 @@ def main():
     
     
 
-    # projector configutation
+    # projector configuration
     proj_integ = projector.set_config(path)
     
-    
+    # screen configuration
+    screens = screen.set_config(path)
+
+
+
     # make display pattern
     
 
