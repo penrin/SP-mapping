@@ -3,6 +3,7 @@ import os
 import argparse
 import cv2
 import time
+import json
 
 import util
 import projector
@@ -17,13 +18,21 @@ def graycode_projection(proj_list, path):
     # THETA
     theta = theta_s.ThetaS()
     
+    config = {}
+    config['num_projectors'] = len(proj_list)
+    config['parameters'] = {}
+
+
     # display and caputure
-    
     URI_list = []
     filename_list = []
-    
+
     for n, proj in enumerate(proj_list):
         
+        config_sub = {}
+        config_sub['x_num_pixel'] = int(proj.aspect[1])
+        config_sub['y_num_pixel'] = int(proj.aspect[0])
+
         # grey color
         grey = proj.gen_canvas()
         grey[:] = GRAY_VALUE
@@ -52,7 +61,8 @@ def graycode_projection(proj_list, path):
         filename_list.append(filename)
 
         # x-axis
-        imgs, nbits = graycode.graycodepattern(proj.aspect, axis='x', BGR=True)
+        ret = graycode.graycodepattern(proj.aspect, axis='x', BGR=True)
+        imgs, nbits, offset = ret
         for i in range(len(imgs)):
             # display
             disp_img = proj.add_base(imgs[i])
@@ -64,9 +74,14 @@ def graycode_projection(proj_list, path):
             URI_list.append(URI)
             filename = 'gray_proj%d_x%d.jpg' % (n + 1, i)
             filename_list.append(filename)
-            
+        config_sub['xgraycode_BGR'] = True
+        config_sub['xgraycode_num_image'] = len(imgs)
+        config_sub['xgraycode_num_bits'] = nbits
+        config_sub['xgraycode_offset'] = offset
+
         # y-axis
-        imgs, nbits = graycode.graycodepattern(proj.aspect, axis='y', BGR=True)
+        ret = graycode.graycodepattern(proj.aspect, axis='y', BGR=True)
+        imgs, nbits, offset = ret
         for i in range(len(imgs)):
             # display
             disp_img = proj.add_base(imgs[i])
@@ -78,13 +93,23 @@ def graycode_projection(proj_list, path):
             URI_list.append(URI)
             filename = 'gray_proj%d_y%d.jpg' % (n + 1, i)
             filename_list.append(filename)
+        config_sub['ygraycode_BGR'] = True
+        config_sub['ygraycode_num_image'] = len(imgs)
+        config_sub['ygraycode_num_bits'] = nbits
+        config_sub['ygraycode_offset'] = offset
+        
+        config['parameters']['projector_%d' % (n + 1)] = config_sub
     
+    # save config
+    filename = path + 'graycode_config.json'
+    f = open(filename, 'w')
+    json.dump(config, f, indent=4)
+    f.close()
     
     # save images
     for i in range(len(filename_list)):
         theta.save(URI_list[i], path + filename_list[i])
-        
-    
+
 
 
 
@@ -120,10 +145,9 @@ if __name__ == '__main__':
     # screen configuration
     screens = screen.set_config(path)
     
-    # display & capture
+    # display & capture & analyse
     graycode_projection(proj_list, path)
 
-    # analyse
     
     
 
