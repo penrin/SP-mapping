@@ -120,7 +120,10 @@ def graycode_projection(proj_list, path):
         config_sub = {}
         config_sub['x_num_pixel'] = int(proj.aspect[1])
         config_sub['y_num_pixel'] = int(proj.aspect[0])
-
+        config_sub['x_starting'] = int(proj.upperleft[1])
+        config_sub['y_starting'] = int(proj.upperleft[0])
+        
+        
         # grey color
         grey = proj.gen_canvas()
         grey[:] = GRAY_VALUE
@@ -225,9 +228,12 @@ def graycode_analysis(screen_list, path):
         proj_id = n + 1
         config_sub = config['parameters']['projector_%d' % proj_id]
         proj_HW = config_sub['y_num_pixel'], config_sub['x_num_pixel']
+        x_starting = config_sub['x_starting']
+        y_starting = config_sub['y_starting']
         screen = screen_list[n]
         
         i1, i2, j1, j2 = screen.get_projection_area(img_HW)
+        print(i1, i2, j1, j2)
         # reference image
         filename = path + 'gray_proj%d_grey.jpg' % proj_id
         img_ref = imread(filename)[i1:i2, j1:j2, :]
@@ -259,7 +265,8 @@ def graycode_analysis(screen_list, path):
                                  imgs_bin[:, :, i - 1], imgs_code[:, :, i])
         weight = 2 ** np.arange(nbits)[::-1].reshape(1, 1, -1)
         proj_x = np.sum(imgs_bin * weight, axis=-1).astype(np.float32)
-        proj_x -= offset
+        proj_x += x_starting - offset
+
         
 
         # ----- y-axis -----
@@ -289,7 +296,7 @@ def graycode_analysis(screen_list, path):
                                  imgs_bin[:, :, i - 1], imgs_code[:, :, i])
         weight = 2 ** np.arange(nbits)[::-1].reshape(1, 1, -1)
         proj_y = np.sum(imgs_bin * weight, axis=-1).astype(np.float32)
-        proj_y -= offset
+        proj_y += y_starting - offset
         
         # remove pulse noise from bit errors
         proj_x = cv2.medianBlur(proj_x, KSIZE_MEDIAN_FILTER)
@@ -306,10 +313,11 @@ def graycode_analysis(screen_list, path):
                 )
 
         # estimate
-        x1 = max(0, int(np.floor(np.nanmin(proj_x))))
-        x2 = min(int(np.ceil(np.nanmax(proj_x))), proj_HW[1])
-        y1 = max(0, int(np.floor(np.nanmin(proj_y))))
-        y2 = min(int(np.ceil(np.nanmax(proj_y))), proj_HW[0])
+        x1 = max(x_starting, int(np.floor(np.nanmin(proj_x))))
+        x2 = min(int(np.ceil(np.nanmax(proj_x))), proj_HW[1] + x_starting)
+        y1 = max(y_starting, int(np.floor(np.nanmin(proj_y))))
+        y2 = min(int(np.ceil(np.nanmax(proj_y))), proj_HW[0] + y_starting)
+        print(x1, x2, y1, y2)
         proj_y_interp, proj_x_interp = np.mgrid[y1:y2, x1:x2]
         
         index = screen.get_masked_index(img_HW)
