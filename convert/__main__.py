@@ -10,13 +10,19 @@ import converter
 
 def convert_image():
     sph_HW = img.shape[0], img.shape[1]
+    print('Making convert matrix')
     mat = converter.make_convert_matrix(mapper, proj_HW, sph_HW, interp)
     mat = sparse.csr_matrix(mat)
-    out = np.empty([proj_HW[0], proj_HW[1], 3], dtype=np.uint8)
+    print('Convert')
+    img_linear = (img / 255) ** gamma
+    out = np.empty([proj_HW[0], proj_HW[1], 3], dtype=np.float32)
     for i in range(3):
-        b = img[:, :, i].reshape(-1, 1)
+        b = img_linear[:, :, i].reshape(-1, 1)
         out[:, :, i] = mat.dot(b).reshape(proj_HW)
-    cv2.imwrite(outfilename, out)
+    out = 255 * out ** (1 / gamma)
+    out[np.where(out < 0)] = 0
+    out[np.where(out > 255)] = 255
+    cv2.imwrite(outfilename, out.astype(np.uint8))
     return
 
 
@@ -75,8 +81,8 @@ if __name__ == '__main__':
     infilename = '/Users/penrin/Desktop/workfolder/sample_0.png'
     outfilename = path + 'output.jpg'
     
-    gamma = 2.2
-    interp = 'nearest'
+    gamma = 1
+    interp = 'bilinear'
     proj_img = cv2.imread(path + 'projector_1.png')
     proj_HW = proj_img.shape[0], proj_img.shape[1]
     
@@ -91,4 +97,3 @@ if __name__ == '__main__':
         cap = cv2.VideoCapture(infilename)
         convert_video()
         
-    
