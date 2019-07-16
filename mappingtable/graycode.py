@@ -1,12 +1,14 @@
 import numpy as np
 import cv2
 import json
+from scipy import interpolate
 
 import theta_s
-
+import matplotlib.pyplot as plt
 
 GRAY_VALUE = 186
-
+KSIZE_MEDIAN_FILTER = 5
+KSIZE_SMOOTHING = 20 # moving average
 
 # graycode encoding
 def gray_encode(n:int) -> int:
@@ -98,11 +100,16 @@ def graycode_projection(proj_list, path):
     
     config = {}
     config['num_projectors'] = len(proj_list)
+    config['camera'] = {}
     config['parameters'] = {}
 
 
     # THETA
     theta = theta_s.ThetaS()
+    config['camera']['model'] = 'RICOH THETA S'
+    HW = theta.get_imageSize()
+    config['camera']['height'] = HW[0]
+    config['camera']['width'] = HW[1]
     
     # display and caputure
     URI_list = []
@@ -178,9 +185,7 @@ def graycode_projection(proj_list, path):
         config_sub['ygraycode_offset'] = offset
         
         config['parameters']['projector_%d' % (n + 1)] = config_sub
-    
-    cv2.close()
-    
+     
     # save config
     filename = path + 'graycode_config.json'
     f = open(filename, 'w')
@@ -188,7 +193,152 @@ def graycode_projection(proj_list, path):
     f.close()
     
     # save images
+    print('save images')
     for i in range(len(filename_list)):
         theta.save(URI_list[i], path + filename_list[i])
 
 
+
+
+def imread(filename):
+    img = cv2.imread(filename)
+    if img is None:
+        raise Exception('Cannot read %d' % filename)
+    else:
+        return img
+    
+
+def graycode_analysis(screen_list, path):
+    
+    # load configuration
+    filename = path + 'graycode_config.json'
+    f = open(filename, 'r')
+    config = json.load(f)
+    
+    img_HW = config['camera']['height'], config['camera']['width']
+    
+    N = config['num_projectors']
+    proj_x_stack, proj_y_stack = [], []
+    azimuth_stack, polar_stack = [], []
+    for n in range(N):
+
+        proj_id = n + 1
+        config_sub = config['parameters']['projector_%d' % proj_id]
+        proj_HW = config_sub['y_num_pixel'], config_sub['x_num_pixel']
+        screen = screen_list[n]
+        
+        i1, i2, j1, j2 = screen.get_projection_area(img_HW)
+        # reference image
+        filename = path + 'gray_proj%d_grey.jpg' % proj_id
+        img_ref = imread(filename)[i1:i2, j1:j2, :]
+        
+        # ----- x-axis -----
+        BGR = config_sub['xgraycode_BGR']
+        num_imgs = config_sub['xgraycode_num_image']
+        nbits = config_sub['xgraycode_num_bits']
+        offset = config_sub['xgraycode_offset']
+        imgs_code = np.empty([i2 - i1, j2 - j1, nbits], dtype=np.bool)
+        for i in range(num_imgs):
+            # load image
+            filename = path + 'gray_proj%d_x%d.jpg' % (proj_id, i)
+            img = imread(filename)[i1:i2, j1:j2, :]
+            # judge 0 or 1
+            if BGR:
+                code = (img > img_ref)
+                for j in range(3):
+                    if (3 * i + j) >= nbits: break
+                    imgs_code[:, :, 3 * i + j] = code[:, :, j]
+            else:
+                code = (img[:, :, 1] > img_ref[:, :, 1]) # green layer
+                imgs_code[:, :, i] = code
+        # decode
+        imgs_bin = np.empty_like(imgs_code, dtype=np.bool)
+        imgs_bin[:, :, 0] = imgs_code[:, :, 0]
+        for i in range(1, nbits):
+            imgs_bin[:, :, i] = np.logical_xor(
+                                 imgs_bin[:, :, i - 1], imgs_code[:, :, i])
+        weight = 2 ** np.arange(nbits)[::-1].reshape(1, 1, -1)
+        proj_x = np.sum(imgs_bin * weight, axis=-1).astype(np.float32)
+        proj_x -= offset
+        
+
+        # ----- y-axis -----
+        BGR = config_sub['ygraycode_BGR']
+        num_imgs = config_sub['ygraycode_num_image']
+        nbits = config_sub['ygraycode_num_bits']
+        offset = config_sub['ygraycode_offset']
+        imgs_code = np.empty([i2 - i1, j2 - j1, nbits], dtype=np.bool)
+        for i in range(num_imgs):
+            # load image
+            filename = path + 'gray_proj%d_y%d.jpg' % (proj_id, i)
+            img = imread(filename)[i1:i2, j1:j2, :]
+            # judge 0 or 1
+            if BGR:
+                code = (img > img_ref)
+                for j in range(3):
+                    if (3 * i + j) >= nbits: break
+                    imgs_code[:, :, 3 * i + j] = code[:, :, j]
+            else:
+                code = (img[:, :, 1] > img_ref[:, :, 1]) # green layer
+                imgs_code[:, :, i] = code
+        # decode
+        imgs_bin = np.empty_like(imgs_code, dtype=np.bool)
+        imgs_bin[:, :, 0] = imgs_code[:, :, 0]
+        for i in range(1, nbits):
+            imgs_bin[:, :, i] = np.logical_xor(
+                                 imgs_bin[:, :, i - 1], imgs_code[:, :, i])
+        weight = 2 ** np.arange(nbits)[::-1].reshape(1, 1, -1)
+        proj_y = np.sum(imgs_bin * weight, axis=-1).astype(np.float32)
+        proj_y -= offset
+        
+        # remove pulse noise from bit errors
+        proj_x = cv2.medianBlur(proj_x, KSIZE_MEDIAN_FILTER)
+        proj_y = cv2.medianBlur(proj_y, KSIZE_MEDIAN_FILTER)
+        
+        # smoothing
+        proj_x = cv2.blur(proj_x, (KSIZE_SMOOTHING, KSIZE_SMOOTHING))
+        proj_y = cv2.blur(proj_y, (KSIZE_SMOOTHING, KSIZE_SMOOTHING))
+
+        # pixel direction
+        azimuth, polar = np.meshgrid(
+                np.arange(j1, j2) * 360 / img_HW[1],
+                np.arange(i1, i2) * 180 / img_HW[0],
+                )
+
+        # estimate
+        x1 = max(0, int(np.floor(np.nanmin(proj_x))))
+        x2 = min(int(np.ceil(np.nanmax(proj_x))), proj_HW[1])
+        y1 = max(0, int(np.floor(np.nanmin(proj_y))))
+        y2 = min(int(np.ceil(np.nanmax(proj_y))), proj_HW[0])
+        proj_y_interp, proj_x_interp = np.mgrid[y1:y2, x1:x2]
+        
+        index = screen.get_masked_index(img_HW)
+        azimuth_interp = interpolate.griddata(
+                (proj_x[index], proj_y[index]), azimuth[index],
+                (proj_x_interp, proj_y_interp), method='linear', fill_value=-1
+                )
+        polar_interp = interpolate.griddata(
+                (proj_x[index], proj_y[index]), polar[index],
+                (proj_x_interp, proj_y_interp), method='linear', fill_value=-1
+                )
+
+        index = np.where(
+                (screen.area_polar[0] <= polar_interp) &
+                (polar_interp < screen.area_polar[1]) &
+                (screen.area_azimuth[0] <= azimuth_interp) &
+                (azimuth_interp < screen.area_azimuth[1])
+                )
+        proj_x_stack.append(proj_x_interp[index])
+        proj_y_stack.append(proj_y_interp[index])
+        azimuth_stack.append(azimuth_interp[index])
+        polar_stack.append(polar_interp[index])
+        
+    
+    proj_x_stack = np.hstack(proj_x_stack)
+    proj_y_stack = np.hstack(proj_y_stack)
+    azimuth_stack = np.hstack(azimuth_stack)
+    polar_stack = np.hstack(polar_stack)
+    filename = path + 'mapping_table.npz'
+    np.savez(filename, y=proj_y_stack, x=proj_x_stack,
+             azimuth=azimuth_stack, polar=polar_stack)
+    
