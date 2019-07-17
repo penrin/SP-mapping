@@ -4,7 +4,6 @@ import json
 from scipy import interpolate
 
 import theta_s
-import screen # X
 import matplotlib.pyplot as plt
 
 GRAY_VALUE = 186
@@ -215,6 +214,48 @@ def imread(filename):
         return img
     
 
+    
+def add_equirectangular_margin(img, margin_x, margin_y=None):
+    
+    if margin_y == None:
+        margin_y = margin_x
+    if (type(margin_x) != int) or (type(margin_y) != int):
+        print('The decimal point of margins are rounded up.')
+        margin_x = int(np.ceil(margin_x))
+        margin_y = int(np.ceil(margin_y))
+    if img.ndim != 3:
+        raise Exception('image dimention shoud be 3.')
+    if (margin_y > img.shape[0]) or (margin_x > img.shape[1]):
+        raise Exception('The size of the margin is up to the image size.')
+    
+    mx = margin_x
+    my = margin_y
+    H = img.shape[0] + my * 2
+    W = img.shape[1] + mx * 2
+    D = img.shape[2]
+    img_ = np.empty([H, W, D], dtype=img.dtype)
+    img_[my:-my, mx:-mx, :] = img
+    img_[:my, mx:W // 2 ,:] = img_[my:my * 2, W // 2:-mx, :][::-1]
+    img_[:my, W // 2:-mx ,:] = img_[my:my * 2, mx:W // 2, :][::-1]
+    img_[-my:, mx:W // 2, :] = img_[-my * 2:-my, W // 2:-mx, :][::-1]
+    img_[-my:, W // 2:-mx, :] = img_[-my * 2:-my, mx:W // 2, :][::-1]
+    img_[:, :mx, :] = img_[:, -mx * 2:-mx, :]
+    img_[:, -mx:, :] = img_[:, mx:mx * 2, :]
+    return img_
+
+
+def shift_horizontal(img, shift):
+    if shift > 0:
+        N = shift
+    else:
+        N = img.shape[1] + shift
+    M = img.shape[1] - N
+    img_ = np.empty_like(img)
+    img_[:, :N] = img[:, -N:]
+    img_[:, N:] = img[:, :M]
+    return img_
+
+
 def graycode_analysis(screen_list, path):
     
     # load configuration
@@ -244,8 +285,8 @@ def graycode_analysis(screen_list, path):
         # reference image
         filename = path + 'gray_proj%d_grey.jpg' % proj_id
         img_ref = imread(filename)
-        img_ref = screen.add_equirectangular_margin(img_ref, margin[1], margin[0])
-        img_ref = screen.shift_horizontal(img_ref, scr.horizontal_shift)
+        img_ref = add_equirectangular_margin(img_ref, margin[1], margin[0])
+        img_ref = shift_horizontal(img_ref, scr.horizontal_shift)
         img_ref = img_ref[i1:i2, j1:j2, :]
 
         # ----- x-axis -----
@@ -258,8 +299,8 @@ def graycode_analysis(screen_list, path):
             # load image
             filename = path + 'gray_proj%d_x%d.jpg' % (proj_id, i)
             img = imread(filename)
-            img = screen.add_equirectangular_margin(img, margin[1], margin[0])
-            img = screen.shift_horizontal(img, scr.horizontal_shift)
+            img = add_equirectangular_margin(img, margin[1], margin[0])
+            img = shift_horizontal(img, scr.horizontal_shift)
             img = img[i1:i2, j1:j2, :]
 
             # judge 0 or 1
@@ -293,8 +334,8 @@ def graycode_analysis(screen_list, path):
             # load image
             filename = path + 'gray_proj%d_y%d.jpg' % (proj_id, i)
             img = imread(filename)
-            img = screen.add_equirectangular_margin(img, margin[1], margin[0])
-            img = screen.shift_horizontal(img, scr.horizontal_shift)
+            img = add_equirectangular_margin(img, margin[1], margin[0])
+            img = shift_horizontal(img, scr.horizontal_shift)
             img = img[i1:i2, j1:j2, :]
 
             # judge 0 or 1
@@ -383,4 +424,5 @@ def graycode_analysis(screen_list, path):
     filename = path + 'mapping_table.npz'
     np.savez(filename, y=proj_y_stack, x=proj_x_stack,
              azimuth=azimuth_stack, polar=polar_stack)
+
 
