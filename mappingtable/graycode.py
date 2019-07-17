@@ -4,11 +4,15 @@ import json
 from scipy import interpolate
 
 import theta_s
+import screen # X
 import matplotlib.pyplot as plt
 
 GRAY_VALUE = 186
-KSIZE_MEDIAN_FILTER = 5
-KSIZE_SMOOTHING = 20 # moving average
+KSIZE_MEDIAN_FILTER = 5 # 3, 5, 7, 9
+KSIZE_SMOOTHING_X = 21 # odd
+KSIZE_SMOOTHING_Y = 21 # odd
+margin = KSIZE_SMOOTHING_Y // 2 + 1, KSIZE_SMOOTHING_X // 2 + 1
+
 
 # graycode encoding
 def gray_encode(n:int) -> int:
@@ -224,20 +228,26 @@ def graycode_analysis(screen_list, path):
     proj_x_stack, proj_y_stack = [], []
     azimuth_stack, polar_stack = [], []
     for n in range(N):
+        print('----- %d/%d -----' % (n + 1, N))
 
         proj_id = n + 1
         config_sub = config['parameters']['projector_%d' % proj_id]
         proj_HW = config_sub['y_num_pixel'], config_sub['x_num_pixel']
         x_starting = config_sub['x_starting']
         y_starting = config_sub['y_starting']
-        screen = screen_list[n]
+
         
-        i1, i2, j1, j2 = screen.get_projection_area(img_HW)
-        print(i1, i2, j1, j2)
+        scr = screen_list[n]
+        i1, i2, j1, j2 = scr.get_evaluation_area_index()
+        
+        print('Decoding Gray-code pattern')
         # reference image
         filename = path + 'gray_proj%d_grey.jpg' % proj_id
-        img_ref = imread(filename)[i1:i2, j1:j2, :]
-        
+        img_ref = imread(filename)
+        img_ref = screen.add_equirectangular_margin(img_ref, margin[1], margin[0])
+        img_ref = screen.shift_horizontal(img_ref, scr.horizontal_shift)
+        img_ref = img_ref[i1:i2, j1:j2, :]
+
         # ----- x-axis -----
         BGR = config_sub['xgraycode_BGR']
         num_imgs = config_sub['xgraycode_num_image']
@@ -247,7 +257,11 @@ def graycode_analysis(screen_list, path):
         for i in range(num_imgs):
             # load image
             filename = path + 'gray_proj%d_x%d.jpg' % (proj_id, i)
-            img = imread(filename)[i1:i2, j1:j2, :]
+            img = imread(filename)
+            img = screen.add_equirectangular_margin(img, margin[1], margin[0])
+            img = screen.shift_horizontal(img, scr.horizontal_shift)
+            img = img[i1:i2, j1:j2, :]
+
             # judge 0 or 1
             if BGR:
                 code = (img > img_ref)
@@ -278,7 +292,11 @@ def graycode_analysis(screen_list, path):
         for i in range(num_imgs):
             # load image
             filename = path + 'gray_proj%d_y%d.jpg' % (proj_id, i)
-            img = imread(filename)[i1:i2, j1:j2, :]
+            img = imread(filename)
+            img = screen.add_equirectangular_margin(img, margin[1], margin[0])
+            img = screen.shift_horizontal(img, scr.horizontal_shift)
+            img = img[i1:i2, j1:j2, :]
+
             # judge 0 or 1
             if BGR:
                 code = (img > img_ref)
@@ -301,26 +319,33 @@ def graycode_analysis(screen_list, path):
         # remove pulse noise from bit errors
         proj_x = cv2.medianBlur(proj_x, KSIZE_MEDIAN_FILTER)
         proj_y = cv2.medianBlur(proj_y, KSIZE_MEDIAN_FILTER)
+        #plt.subplot(221)
+        #plt.imshow(proj_x, cmap=plt.cm.prism)
+        #plt.subplot(222)
+        #plt.imshow(proj_y, cmap=plt.cm.prism)
         
         # smoothing
-        proj_x = cv2.blur(proj_x, (KSIZE_SMOOTHING, KSIZE_SMOOTHING))
-        proj_y = cv2.blur(proj_y, (KSIZE_SMOOTHING, KSIZE_SMOOTHING))
-
+        proj_x = cv2.blur(proj_x, (KSIZE_SMOOTHING_X, KSIZE_SMOOTHING_Y))
+        proj_y = cv2.blur(proj_y, (KSIZE_SMOOTHING_X, KSIZE_SMOOTHING_Y))
+        #plt.subplot(223)
+        #plt.imshow(proj_x[11:-11, 11:-11], cmap=plt.cm.prism)
+        #plt.subplot(224)
+        #plt.imshow(proj_y[11:-11, 11:-11], cmap=plt.cm.prism)
+        #plt.show()
+        #sys.exit()
+        
         # pixel direction
-        azimuth, polar = np.meshgrid(
-                np.arange(j1, j2) * 360 / img_HW[1],
-                np.arange(i1, i2) * 180 / img_HW[0],
-                )
+        polar, azimuth = scr.get_direction_meshgrid()
 
         # estimate
+        print('Estimating pixel direction')
         x1 = max(x_starting, int(np.floor(np.nanmin(proj_x))))
         x2 = min(int(np.ceil(np.nanmax(proj_x))), proj_HW[1] + x_starting)
         y1 = max(y_starting, int(np.floor(np.nanmin(proj_y))))
         y2 = min(int(np.ceil(np.nanmax(proj_y))), proj_HW[0] + y_starting)
-        print(x1, x2, y1, y2)
         proj_y_interp, proj_x_interp = np.mgrid[y1:y2, x1:x2]
         
-        index = screen.get_masked_index(img_HW)
+        index = scr.get_masked_index()
         azimuth_interp = interpolate.griddata(
                 (proj_x[index], proj_y[index]), azimuth[index],
                 (proj_x_interp, proj_y_interp), method='linear', fill_value=-1
@@ -329,19 +354,28 @@ def graycode_analysis(screen_list, path):
                 (proj_x[index], proj_y[index]), polar[index],
                 (proj_x_interp, proj_y_interp), method='linear', fill_value=-1
                 )
-
+        
+        plt.subplot(211)
+        plt.imshow(azimuth_interp, cmap=plt.cm.prism)
+        plt.subplot(212)
+        plt.imshow(polar_interp, cmap=plt.cm.prism)
+        plt.show()
+        
+         
         index = np.where(
-                (screen.area_polar[0] <= polar_interp) &
-                (polar_interp < screen.area_polar[1]) &
-                (screen.area_azimuth[0] <= azimuth_interp) &
-                (azimuth_interp < screen.area_azimuth[1])
+                (scr.area_polar[0] <= polar_interp) &
+                (polar_interp < scr.area_polar[1]) &
+                (scr.area_azimuth[0] <= azimuth_interp) &
+                (azimuth_interp < scr.area_azimuth[1])
                 )
         proj_x_stack.append(proj_x_interp[index])
         proj_y_stack.append(proj_y_interp[index])
         azimuth_stack.append(azimuth_interp[index])
         polar_stack.append(polar_interp[index])
         
-    
+        
+    print('---------------')
+    print('save mapping table')
     proj_x_stack = np.hstack(proj_x_stack)
     proj_y_stack = np.hstack(proj_y_stack)
     azimuth_stack = np.hstack(azimuth_stack)
@@ -349,4 +383,4 @@ def graycode_analysis(screen_list, path):
     filename = path + 'mapping_table.npz'
     np.savez(filename, y=proj_y_stack, x=proj_x_stack,
              azimuth=azimuth_stack, polar=polar_stack)
-    
+
