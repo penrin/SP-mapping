@@ -10,9 +10,6 @@ import graycode
 
 
 
-
-
-
 if __name__ == '__main__':
      
 
@@ -28,19 +25,18 @@ if __name__ == '__main__':
         path += '/'
     if not os.path.isdir(path):
         raise Exception('%s is not exists.' % path)
-    
-    
 
-    # projector configuration
+
+
+    # gray-code pattern display & capture
     proj_list = projector.set_config(path)
     projector.inspect_projectors(proj_list)
-
-    # screen configuration
-    screens = screen.set_config(path)
+    #graycode.graycode_projection(proj_list, path)
     
-    # display & capture & analyse
-    graycode.graycode_projection(proj_list, path)
 
+    # gray-code pattern analysis
+    screen_list = screen.set_config(path)
+    graycode.graycode_analysis(screen_list, path)
     
     
 

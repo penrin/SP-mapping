@@ -1,9 +1,11 @@
 import numpy as np
 import cv2
 import json
-from scipy import interpolate
+#from scipy import interpolate
+from scipy.interpolate import LinearNDInterpolator
 
 import theta_s
+import concavehull
 import matplotlib.pyplot as plt
 
 GRAY_VALUE = 186
@@ -103,6 +105,7 @@ def graycode_projection(proj_list, path):
     
     config = {}
     config['num_projectors'] = len(proj_list)
+    config['projector_whole_HW'] = proj_list[0].base_aspect
     config['camera'] = {}
     config['parameters'] = {}
 
@@ -318,7 +321,7 @@ def graycode_analysis(screen_list, path):
         for i in range(1, nbits):
             imgs_bin[:, :, i] = np.logical_xor(
                                  imgs_bin[:, :, i - 1], imgs_code[:, :, i])
-        weight = 2 ** np.arange(nbits)[::-1].reshape(1, 1, -1)
+        weight = 2 ** np.arange(nbits) [::-1].reshape(1, 1, -1)
         proj_x = np.sum(imgs_bin * weight, axis=-1).astype(np.float32)
         proj_x += x_starting - offset
 
@@ -360,60 +363,80 @@ def graycode_analysis(screen_list, path):
         # remove pulse noise from bit errors
         proj_x = cv2.medianBlur(proj_x, KSIZE_MEDIAN_FILTER)
         proj_y = cv2.medianBlur(proj_y, KSIZE_MEDIAN_FILTER)
-        #plt.subplot(221)
-        #plt.imshow(proj_x, cmap=plt.cm.prism)
-        #plt.subplot(222)
-        #plt.imshow(proj_y, cmap=plt.cm.prism)
         
         # smoothing
         proj_x = cv2.blur(proj_x, (KSIZE_SMOOTHING_X, KSIZE_SMOOTHING_Y))
         proj_y = cv2.blur(proj_y, (KSIZE_SMOOTHING_X, KSIZE_SMOOTHING_Y))
-        #plt.subplot(223)
-        #plt.imshow(proj_x[11:-11, 11:-11], cmap=plt.cm.prism)
-        #plt.subplot(224)
-        #plt.imshow(proj_y[11:-11, 11:-11], cmap=plt.cm.prism)
-        #plt.show()
-        #sys.exit()
         
         # pixel direction
         polar, azimuth = scr.get_direction_meshgrid()
-
-        # estimate
+        
+        # 
+        index_masker = scr.get_masked_index()
+        proj_x_sample = proj_x[index_masker]
+        proj_y_sample = proj_y[index_masker]
+        polar_sample = polar[index_masker]
+        azimuth_sample = azimuth[index_masker]
+        points_sample = np.c_[proj_x_sample, proj_y_sample]
+        
+        # interpolate points candidate
+        print('Refining projector pixel')
+        x1 = int(np.ceil(proj_x_sample.min()))
+        x2 = int(proj_x_sample.max())
+        y1 = int(np.ceil(proj_y_sample.min()))
+        y2 = int(proj_y_sample.max())
+        proj_y_interp_cand, proj_x_interp_cand = np.mgrid[y1:y2, x1:x2]
+        points_interp_cand = np.c_[
+                proj_x_interp_cand.reshape(-1),
+                proj_y_interp_cand.reshape(-1)
+                ]
+        # determine interpolate points
+        n_poly = 100 # ポリゴン数（超大まかな目安）
+        k = int(2 * (np.sqrt(len(points_sample)) / (n_poly / 4)) ** 2 * np.pi)
+        hull = concavehull.concavehull(points_sample, k)
+        inside = concavehull.check_inside(points_interp_cand, hull)
+        i_inside_hull = np.where(inside)[0]
+        points_interp = points_interp_cand[i_inside_hull, :]
+        
+        # interpolation
         print('Estimating pixel direction')
-        x1 = max(x_starting, int(np.floor(np.nanmin(proj_x))))
-        x2 = min(int(np.ceil(np.nanmax(proj_x))), proj_HW[1] + x_starting)
-        y1 = max(y_starting, int(np.floor(np.nanmin(proj_y))))
-        y2 = min(int(np.ceil(np.nanmax(proj_y))), proj_HW[0] + y_starting)
-        proj_y_interp, proj_x_interp = np.mgrid[y1:y2, x1:x2]
+        f = LinearNDInterpolator(points_sample, polar_sample)
+        polar_interp = f(points_interp)
         
-        index = scr.get_masked_index()
-        azimuth_interp = interpolate.griddata(
-                (proj_x[index], proj_y[index]), azimuth[index],
-                (proj_x_interp, proj_y_interp), method='linear', fill_value=-1
-                )
-        polar_interp = interpolate.griddata(
-                (proj_x[index], proj_y[index]), polar[index],
-                (proj_x_interp, proj_y_interp), method='linear', fill_value=-1
-                )
-        
-        plt.subplot(211)
-        plt.imshow(azimuth_interp, cmap=plt.cm.prism)
-        plt.subplot(212)
-        plt.imshow(polar_interp, cmap=plt.cm.prism)
-        plt.show()
-        
-         
-        index = np.where(
+        f = LinearNDInterpolator(points_sample, azimuth_sample)
+        azimuth_interp = f(points_interp)
+
+        i_inside_area = np.where(
                 (scr.area_polar[0] <= polar_interp) &
                 (polar_interp < scr.area_polar[1]) &
                 (scr.area_azimuth[0] <= azimuth_interp) &
                 (azimuth_interp < scr.area_azimuth[1])
                 )
-        proj_x_stack.append(proj_x_interp[index])
-        proj_y_stack.append(proj_y_interp[index])
-        azimuth_stack.append(azimuth_interp[index])
-        polar_stack.append(polar_interp[index])
+        proj_x_stack.append(points_interp[i_inside_area, 0])
+        proj_y_stack.append(points_interp[i_inside_area, 1])
+        azimuth_stack.append(azimuth_interp[i_inside_area])
+        polar_stack.append(polar_interp[i_inside_area])
         
+        '''
+        # plot
+        polar_img = np.empty_like(proj_y_interp_cand, dtype=np.float)
+        azimuth_img = np.empty_like(proj_y_interp_cand, dtype=np.float)
+        polar_img[:] = np.nan
+        azimuth_img[:] = np.nan
+        
+        polar_img.reshape(-1)[i_inside_hull[i_inside_area]]\
+                                            = polar_interp[i_inside_area]
+        azimuth_img.reshape(-1)[i_inside_hull[i_inside_area]]\
+                                            = azimuth_interp[i_inside_area]                
+        plt.subplot(121)
+        plt.imshow(polar_img, cmap=plt.cm.prism)
+        plt.subplot(122)
+        plt.imshow(azimuth_img, cmap=plt.cm.prism)
+        plt.tight_layout()
+        plt.savefig(path + 'plt_interp_%d.pdf' % proj_id)
+        plt.close()
+        '''
+                
         
     print('---------------')
     print('save mapping table')
@@ -425,4 +448,28 @@ def graycode_analysis(screen_list, path):
     np.savez(filename, y=proj_y_stack, x=proj_x_stack,
              azimuth=azimuth_stack, polar=polar_stack)
 
+    check_mapper(proj_x_stack, proj_y_stack, polar_stack,
+            azimuth_stack, config['projectors_whole_HW'], path)
+    
+    
+    
+def check_mapper(x, y, polar, azimuth, HW, path):
+    
+    img_x = np.zeros(HW)
+    img_y = np.zeros(HW)
+    pi = x + HW[1] * y
+    img_x.reshape(-1)[pi] = polar
+    img_y.reshape(-1)[pi] = azimuth
 
+    img_x[np.where(img_x == 0)] = np.nan
+    img_y[np.where(img_y == 0)] = np.nan
+
+    plt.subplot(211)
+    plt.imshow(img_x, cmap=plt.cm.prism)
+    plt.subplot(212)
+    plt.imshow(img_y, cmap=plt.cm.prism)
+    plt.tight_layout()
+    plt.savefig(path + 'plt_mapper.pdf')
+    plt.close()
+
+    
