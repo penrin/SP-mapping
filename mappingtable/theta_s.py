@@ -22,7 +22,6 @@ class ThetaS():
             print('---------------------------------------')
             sys.exit()
 
-        print(api_version)
 
         # set API v2.1
         if api_version != 2:
@@ -126,7 +125,8 @@ class ThetaS():
                     time.sleep(0.2)
         if self.v:
             print('Saved a photo')
-        
+            print(filename)
+
     
     def get_imageSize(self):
         url = 'http://192.168.1.1/osc/commands/execute'
@@ -307,6 +307,9 @@ if __name__ == '__main__':
     
     
     theta = ThetaS(v=True)
+    uri = theta.take()
+    theta.save(uri)
+
     '''
     uri_list = []
 
