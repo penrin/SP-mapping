@@ -197,9 +197,9 @@ def graycode_projection(proj_list, path):
      
     # save config
     filename = path + 'graycode_config.json'
-    f = open(filename, 'w')
-    json.dump(config, f, indent=4)
-    f.close()
+    with open(filename, 'w') as f:
+        json.dump(config, f, indent=4)
+    
     
     # save images
     print('save images')
@@ -263,8 +263,8 @@ def graycode_analysis(screen_list, path):
     
     # load configuration
     filename = path + 'graycode_config.json'
-    f = open(filename, 'r')
-    config = json.load(f)
+    with open(filename, 'r') as f:
+        config = json.load(f)
     
     img_HW = config['camera']['height'], config['camera']['width']
     
@@ -436,8 +436,8 @@ def graycode_analysis(screen_list, path):
         plt.savefig(path + 'plt_interp_%d.pdf' % proj_id)
         plt.close()
         '''
-                
         
+
     print('---------------')
     print('save mapping table')
     proj_x_stack = np.hstack(proj_x_stack)
