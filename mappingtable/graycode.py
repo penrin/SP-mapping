@@ -271,6 +271,9 @@ def graycode_analysis(screen_list, path):
     N = config['num_projectors']
     proj_x_stack, proj_y_stack = [], []
     azimuth_stack, polar_stack = [], []
+    overlap_x, overlap_y = [], []
+    overlap_weight = []
+    
     for n in range(N):
         print('----- %d/%d -----' % (n + 1, N))
 
@@ -391,7 +394,7 @@ def graycode_analysis(screen_list, path):
                 proj_y_interp_cand.reshape(-1)
                 ]
         # determine interpolate points
-        n_poly = 100 # ポリゴン数（超大まかな目安）
+        n_poly = 50 # ポリゴン数（超大まかな目安）
         k = int(2 * (np.sqrt(len(points_sample)) / (n_poly / 4)) ** 2 * np.pi)
         hull = concavehull.concavehull(points_sample, k)
         inside = concavehull.check_inside(points_interp_cand, hull)
@@ -408,68 +411,66 @@ def graycode_analysis(screen_list, path):
 
         i_inside_area = np.where(
                 (scr.area_polar[0] <= polar_interp) &
-                (polar_interp < scr.area_polar[1]) &
+                (polar_interp <= scr.area_polar[1]) &
                 (scr.area_azimuth[0] <= azimuth_interp) &
-                (azimuth_interp < scr.area_azimuth[1])
-                )
+                (azimuth_interp <= scr.area_azimuth[1])
+                )[0]
+
         proj_x_stack.append(points_interp[i_inside_area, 0])
         proj_y_stack.append(points_interp[i_inside_area, 1])
         azimuth_stack.append(azimuth_interp[i_inside_area])
         polar_stack.append(polar_interp[i_inside_area])
-        
-        '''
-        # plot
-        polar_img = np.empty_like(proj_y_interp_cand, dtype=np.float)
-        azimuth_img = np.empty_like(proj_y_interp_cand, dtype=np.float)
-        polar_img[:] = np.nan
-        azimuth_img[:] = np.nan
-        
-        polar_img.reshape(-1)[i_inside_hull[i_inside_area]]\
-                                            = polar_interp[i_inside_area]
-        azimuth_img.reshape(-1)[i_inside_hull[i_inside_area]]\
-                                            = azimuth_interp[i_inside_area]                
-        plt.subplot(121)
-        plt.imshow(polar_img, cmap=plt.cm.prism)
-        plt.subplot(122)
-        plt.imshow(azimuth_img, cmap=plt.cm.prism)
-        plt.tight_layout()
-        plt.savefig(path + 'plt_interp_%d.pdf' % proj_id)
-        plt.close()
-        '''
+
+
+        # overlap weighting
+        if scr.overlap_angle >= 0:
+            left_side, right_side = scr.area_azimuth
+            left_ovlp_end = left_side + scr.overlap_angle
+            right_ovlp_end = right_side - scr.overlap_angle
+            
+            i_ovlp_left = np.where(
+                    (left_side <= azimuth_stack[n]) & 
+                    (azimuth_stack[n] < left_ovlp_end)
+                    )[0]
+            overlap_x.append(proj_x_stack[n][i_ovlp_left])
+            overlap_y.append(proj_y_stack[n][i_ovlp_left])
+            azim_ovlp = azimuth_stack[n][i_ovlp_left]
+            weight = (azim_ovlp - left_side) / (left_ovlp_end - left_side)
+            overlap_weight.append(weight)
+            
+            i_ovlp_right = np.where(
+                    (right_ovlp_end < azimuth_stack[n]) & 
+                    (azimuth_stack[n] <= right_side)
+                    )[0]
+            overlap_x.append(proj_x_stack[n][i_ovlp_right])
+            overlap_y.append(proj_y_stack[n][i_ovlp_right])
+            azim_ovlp = azimuth_stack[n][i_ovlp_right]
+            weight = (azim_ovlp - right_side) / (right_ovlp_end - right_side)
+            overlap_weight.append(weight)
+        else:
+            overlap_x.append([])
+            overlap_y.append([])
+            overlap_weight.append([])
+
+
+        # cancel horizontal shift
+        azimuth_stack[n] -= scr.horizontal_shift_deg   
         
 
-    print('---------------')
-    print('save mapping table')
-    proj_x_stack = np.hstack(proj_x_stack)
-    proj_y_stack = np.hstack(proj_y_stack)
+    proj_x_stack = np.hstack(proj_x_stack).astype(np.int)
+    proj_y_stack = np.hstack(proj_y_stack).astype(np.int)
     azimuth_stack = np.hstack(azimuth_stack)
     polar_stack = np.hstack(polar_stack)
-    filename = path + 'mapping_table.npz'
-    np.savez(filename, y=proj_y_stack, x=proj_x_stack,
-             azimuth=azimuth_stack, polar=polar_stack)
 
-    check_mapper(proj_x_stack, proj_y_stack, polar_stack,
-            azimuth_stack, config['projectors_whole_HW'], path)
-    
-    
-    
-def check_mapper(x, y, polar, azimuth, HW, path):
-    
-    img_x = np.zeros(HW)
-    img_y = np.zeros(HW)
-    pi = x + HW[1] * y
-    img_x.reshape(-1)[pi] = polar
-    img_y.reshape(-1)[pi] = azimuth
+    overlap_x = np.hstack(overlap_x).astype(np.int)
+    overlap_y = np.hstack(overlap_y).astype(np.int)
+    overlap_weight = np.hstack(overlap_weight)
 
-    img_x[np.where(img_x == 0)] = np.nan
-    img_y[np.where(img_y == 0)] = np.nan
+    mapper = (
+            proj_x_stack, proj_y_stack, polar_stack, azimuth_stack,
+            overlap_x, overlap_y, overlap_weight
+            )
+    return mapper
 
-    plt.subplot(211)
-    plt.imshow(img_x, cmap=plt.cm.prism)
-    plt.subplot(212)
-    plt.imshow(img_y, cmap=plt.cm.prism)
-    plt.tight_layout()
-    plt.savefig(path + 'plt_mapper.pdf')
-    plt.close()
 
-    
+
