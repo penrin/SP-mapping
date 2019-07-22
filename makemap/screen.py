@@ -74,7 +74,7 @@ class Screen():
         polar1 = (i1 - self.margin[0]) * 180 / H
         polar2 = (i2 - self.margin[0]) * 180 / H
         azimuth1 = (j1 - self.margin[1]) * 360 / W
-        azimuth2 = (j2 + self.margin[1]) * 360 / W
+        azimuth2 = (j2 - self.margin[1]) * 360 / W
         azimuth1 -= self.overlap_angle / 2
         azimuth2 += self.overlap_angle / 2
         return (polar1, polar2), (azimuth1, azimuth2)
