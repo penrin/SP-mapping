@@ -81,9 +81,9 @@ def concavehull(points, k, visual=False):
         index_current = k_nearest_index[c_points_index[i - 1]]
         dataset[index_current, :] = np.nan
         
-        
         if visual:
             hull_ = toArray_hull(hull)
+            plt.plot(dataset[:, 0], dataset[:, 1], '.', alpha=0.5)
             pp3, = plt.plot(hull_[:-1, 0], hull_[:-1, 1], '-', color='C1')
             pp4, = plt.plot(hull_[-2:, 0], hull_[-2:, 1], ':', color='C1')
             plt.axis('equal')
@@ -96,12 +96,12 @@ def concavehull(points, k, visual=False):
         step += 1
     
     hull_ = toArray_hull(hull)
-    inside = check_inside(dataset, hull_, nan_is=True, radius=0.001)
+    inside = check_inside(dataset, hull_, nan_is=True, radius=0.01)
     n_outside = np.sum(~inside)
     all_inside = (n_outside == 0)
     
     if all_inside == False:
-        if visual:
+        if True:
             # since at least one point is out of the computed polygon,
             # try again with a higher number of nighbours.
             pp1, = plt.plot(hull_[:, 0], hull_[:, 1], '-', color='C1')

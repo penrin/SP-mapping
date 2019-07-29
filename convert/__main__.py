@@ -34,7 +34,6 @@ def convert_video(cap, mapper, filename, options):
 
 
 def check_mapper():
-    
     proj_x = mapper['x']
     proj_y = mapper['y'] 
     sph_x = mapper['azimuth']
@@ -45,11 +44,15 @@ def check_mapper():
     img_x.reshape(-1)[pi] = sph_x
     img_y.reshape(-1)[pi] = sph_y
 
+
+    img_x[np.where(img_x == 0)] = np.nan
+    img_y[np.where(img_y == 0)] = np.nan
+
     import matplotlib.pyplot as plt
     plt.subplot(211)
-    plt.imshow(img_x)
+    plt.imshow(img_x, cmap=plt.cm.prism)
     plt.subplot(212)
-    plt.imshow(img_y)
+    plt.imshow(img_y, cmap=plt.cm.prism)
     plt.show()
 
     
