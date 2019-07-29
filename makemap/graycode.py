@@ -98,7 +98,7 @@ def _graycodepattern_y(aspect):
 
 
 
-def graycode_projection(proj_list, path):
+def graycode_projection(proj_list, path, save_pattern=False):
     
     cv2.namedWindow('SPM', cv2.WINDOW_NORMAL)
     cv2.setWindowProperty('SPM', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
@@ -134,6 +134,9 @@ def graycode_projection(proj_list, path):
         grey = proj.gen_canvas()
         grey[:] = GRAY_VALUE
         disp_img = proj.add_base(grey)
+        if save_pattern:
+            filename = path + 'proj_gray_proj%d_grey.png' % (n + 1)
+            cv2.imwrite(filename, disp_img)
         cv2.imshow('SPM', disp_img)
         
         if n == 0:
@@ -163,6 +166,9 @@ def graycode_projection(proj_list, path):
         for i in range(len(imgs)):
             # display
             disp_img = proj.add_base(imgs[i])
+            if save_pattern:
+                filename = path + 'proj_gray_proj%d_x%d.png' % (n + 1, i)
+                cv2.imwrite(filename, disp_img)
             cv2.imshow('SPM', disp_img)
             cv2.waitKey(10)
             # capture
@@ -181,6 +187,9 @@ def graycode_projection(proj_list, path):
         for i in range(len(imgs)):
             # display
             disp_img = proj.add_base(imgs[i])
+            if save_pattern:
+                filename = path + 'proj_gray_proj%d_y%d.png' % (n + 1, i)
+                cv2.imwrite(filename, disp_img)
             cv2.imshow('SPM', disp_img)
             cv2.waitKey(10)
             # capture
@@ -370,9 +379,18 @@ def graycode_analysis(screen_list, path):
         # smoothing
         proj_x = cv2.blur(proj_x, (KSIZE_SMOOTHING_X, KSIZE_SMOOTHING_Y))
         proj_y = cv2.blur(proj_y, (KSIZE_SMOOTHING_X, KSIZE_SMOOTHING_Y))
+
+        plt.subplot(211)
+        plt.imshow(proj_x, cmap=plt.cm.jet)
+        plt.subplot(212)
+        plt.imshow(proj_y, cmap=plt.cm.jet)
+        plt.savefig(path + 'plt_decode_%d.pdf' % proj_id)
+        plt.close()
+        
         
         # pixel direction
         polar, azimuth = scr.get_direction_meshgrid()
+
         
         # 
         index_masker = scr.get_masked_index()
@@ -394,12 +412,13 @@ def graycode_analysis(screen_list, path):
                 proj_y_interp_cand.reshape(-1)
                 ]
         # determine interpolate points
-        n_poly = 50 # ポリゴン数（超大まかな目安）
+        n_poly = 100 # ポリゴン数（超大まかな目安）
         k = int(2 * (np.sqrt(len(points_sample)) / (n_poly / 4)) ** 2 * np.pi)
         hull = concavehull.concavehull(points_sample, k)
         inside = concavehull.check_inside(points_interp_cand, hull)
         i_inside_hull = np.where(inside)[0]
         points_interp = points_interp_cand[i_inside_hull, :]
+        
         
         # interpolation
         print('Estimating pixel direction')
