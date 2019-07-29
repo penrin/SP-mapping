@@ -85,13 +85,13 @@ if __name__ == '__main__':
         raise Exception('%s is not exists.' % path)
 
 
-
+    '''
     # gray-code pattern display & capture
-    #proj_list = projector.set_config(path)
-    #projector.inspect_projectors(proj_list)
-    #graycode.graycode_projection(proj_list, path)
+    proj_list = projector.set_config(path)
+    projector.inspect_projectors(proj_list)
+    graycode.graycode_projection(proj_list, path, save_pattern=False)
+    '''
     
-
     # gray-code pattern analysis
     screen_list = screen.set_config(path)
     mapper = graycode.graycode_analysis(screen_list, path)

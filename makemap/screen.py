@@ -9,17 +9,20 @@ import graycode
 
 class Screen():
     
-    def __init__(self, filename, size, overlap_angle):
+    def __init__(self, filename, size, overlap_angle, tone_curve):
         
         png = cv2.imread(filename)
         if png is None:
-            raise Exception('%s could not read.' % filename)
+            msg = '%s could not read.' % filename
+            raise Exception(msg)
         
         png = self._resize_png(png, size)
         png = self._add_margin(png, graycode.margin)
         self.original_size = size
         self.margin = graycode.margin
         self.overlap_angle = overlap_angle
+        self.tone_input = tone_curve[0, :]
+        self.tone_output = tone_curve[1, :]
         
         self.png, self.horizontal_shift = self._horizontal_centering_area(png)
         self.horizontal_shift_deg = self.horizontal_shift / size[1] * 360
@@ -128,7 +131,8 @@ def set_config(path2work):
     # get THETA S image size 
     img = cv2.imread(path2work + 'gray_proj1_grey.jpg')
     if img is None:
-        raise Exception('%s could not read.' % filename)
+        msg = '%s could not read.' % (path2work + 'gray_proj1_grey.jpg')
+        raise Exception(msg)
     size = img.shape[0:2]
     
     
@@ -154,7 +158,7 @@ def set_config(path2work):
         num += 1
         filename = path2work + 'screen_%d.png' % num
         if os.path.isfile(filename):
-            scr = Screen(filename, size, overlap_angle)
+            scr = Screen(filename, size, overlap_angle, tone_curve)
             screen_list.append(scr)
         else:
             if num == 1:
