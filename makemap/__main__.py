@@ -51,6 +51,12 @@ def check_mapper(mapper):
 
 
 def save_mapper(mapper):
+    
+    print('---------------------------')
+    print('saving mapping table...', end='')
+    p = util.Propeller()
+    p.start()
+
     x, y, polar, azimuth, ovlp_x, ovlp_y, ovlp_weight = mapper
     
     filename = path + 'mapping_table.npz'
@@ -63,8 +69,7 @@ def save_mapper(mapper):
             ovlp_weight=ovlp_weight
             )
 
-    
-
+    p.end()
 
 
 
@@ -78,34 +83,30 @@ if __name__ == '__main__':
     
     path = args.arg1
     '''
-    path = '../../workfolder'
+    path = '../../workfolder_1'
     if path[-1] != '/':
         path += '/'
     if not os.path.isdir(path):
         raise Exception('%s is not exists.' % path)
 
 
-    
+    '''
     # gray-code pattern display & capture
     proj_list = projector.set_config(path)
     projector.inspect_projectors(proj_list)
     if os.name == 'nt':
         print('Windows mode')
-        graycode.graycode_projection_tkinter(proj_list, path, save_pattern=False)
+        graycode.graycode_projection_tkinter(proj_list, path)
     else:
-        graycode.graycode_projection_tkinter(proj_list, path, save_pattern=False)
-        
+        graycode.graycode_projection(proj_list, path)
+    ''' 
     
     
     # gray-code pattern analysis
-    print('---------------')
-    print('Analyse Graycode Pattern')
     screen_list = screen.set_config(path)
     mapper = graycode.graycode_analysis(screen_list, path)
     
     
-    print('---------------')
-    print('save mapping table')
     check_mapper(mapper)
     save_mapper(mapper)
     

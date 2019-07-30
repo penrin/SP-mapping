@@ -5,6 +5,7 @@ import json
 from scipy.interpolate import LinearNDInterpolator
 import matplotlib.pyplot as plt
 import tkinter
+from PIL import Image, ImageTk
 
 import theta_s
 import concavehull
@@ -231,23 +232,21 @@ def graycode_projection(proj_list, path, save_pattern=False):
 
 
 def tk_imshow(canvas, img):
-    image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB) # imreadはBGRなのでRGBに変換
-    image_pil = Image.fromarray(image_rgb) # RGBからPILフォーマットへ変換
-    image_tk  = ImageTk.PhotoImage(image_pil) # ImageTkフォーマットへ変換
-    canvas.create_image(0, 0, image=image_tk, anchor='nw', tag='img') # ImageTk 画像配置
+    image_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    image_pil = Image.fromarray(image_rgb)
+    image_tk  = ImageTk.PhotoImage(image_pil)
+    canvas.create_image(0, 0, image=image_tk, anchor='nw', tag='img')
     canvas.pack()
     canvas.update()
     canvas.delete('img')
     return
 
-        
 
 def graycode_projection_tkinter(proj_list, path, save_pattern=False):
     
     tkroot = tkinter.Tk()
     tkroot.update()
     tkroot.attributes("-fullscreen", True)
-    print(tkroot.geometry())
     
     config = {}
     config['num_projectors'] = len(proj_list)
@@ -432,6 +431,10 @@ def shift_horizontal(img, shift):
 
 def graycode_analysis(screen_list, path):
     
+    print('------------------------')
+    print('Analyse Graycode Pattern')
+    print('------------------------')
+    
     # load configuration
     filename = path + 'graycode_config.json'
     with open(filename, 'r') as f:
@@ -444,6 +447,8 @@ def graycode_analysis(screen_list, path):
     azimuth_stack, polar_stack = [], []
     overlap_x, overlap_y = [], []
     overlap_weight = []
+
+    p = util.Propeller()
     
     for n in range(N):
         print('----- %d/%d -----' % (n + 1, N))
@@ -458,7 +463,7 @@ def graycode_analysis(screen_list, path):
         scr = screen_list[n]
         i1, i2, j1, j2 = scr.get_evaluation_area_index()
         
-        print('Decoding Gray-code pattern')
+        print('Decoding Gray-code pattern...', end=''); p.start()
         # reference image
         filename = path + 'gray_proj%d_grey.jpg' % proj_id
         img_ref = imread(filename)
@@ -562,8 +567,10 @@ def graycode_analysis(screen_list, path):
         azimuth_sample = azimuth[index_masker]
         points_sample = np.c_[proj_x_sample, proj_y_sample]
         
+        p.end()
+
         # interpolate points candidate
-        print('Refining projector pixel')
+        print('Refining projector pixel...', end=''); p.start()
         x1 = int(np.ceil(proj_x_sample.min()))
         x2 = int(proj_x_sample.max())
         y1 = int(np.ceil(proj_y_sample.min()))
@@ -581,9 +588,10 @@ def graycode_analysis(screen_list, path):
         i_inside_hull = np.where(inside)[0]
         points_interp = points_interp_cand[i_inside_hull, :]
         
+        p.end()
         
         # interpolation
-        print('Estimating pixel direction')
+        print('Estimating pixel direction...', end=''); p.start()
         f = LinearNDInterpolator(points_sample, polar_sample)
         polar_interp = f(points_interp)
         
@@ -637,6 +645,7 @@ def graycode_analysis(screen_list, path):
         # cancel horizontal shift
         azimuth_stack[n] -= scr.horizontal_shift_deg   
         
+        p.end()
 
     proj_x_stack = np.hstack(proj_x_stack).astype(np.int)
     proj_y_stack = np.hstack(proj_y_stack).astype(np.int)
@@ -647,9 +656,14 @@ def graycode_analysis(screen_list, path):
     overlap_y = np.hstack(overlap_y).astype(np.int)
     overlap_weight = np.hstack(overlap_weight)
 
+    overlap_tone_input = src.tone_input
+    overlap_tone_output = src.tone_output
+
+    
     mapper = (
             proj_x_stack, proj_y_stack, polar_stack, azimuth_stack,
-            overlap_x, overlap_y, overlap_weight
+            overlap_x, overlap_y, overlap_weight,
+            overlap_tone_input, overlap_tone_output
             )
     return mapper
 
