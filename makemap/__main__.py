@@ -85,14 +85,21 @@ if __name__ == '__main__':
         raise Exception('%s is not exists.' % path)
 
 
-    '''
+    
     # gray-code pattern display & capture
     proj_list = projector.set_config(path)
     projector.inspect_projectors(proj_list)
-    graycode.graycode_projection(proj_list, path, save_pattern=False)
-    '''
+    if os.name == 'nt':
+        print('Windows mode')
+        graycode.graycode_projection_tkinter(proj_list, path, save_pattern=False)
+    else:
+        graycode.graycode_projection_tkinter(proj_list, path, save_pattern=False)
+        
+    
     
     # gray-code pattern analysis
+    print('---------------')
+    print('Analyse Graycode Pattern')
     screen_list = screen.set_config(path)
     mapper = graycode.graycode_analysis(screen_list, path)
     
