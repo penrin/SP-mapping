@@ -12,7 +12,10 @@ import concavehull
 import util
 
 
-GRAY_VALUE = 186
+GRAY_VALUE = 100
+EV = -2
+
+
 KSIZE_MEDIAN_FILTER = 5 # 3, 5, 7, 9
 KSIZE_SMOOTHING_X = 21 # odd
 KSIZE_SMOOTHING_Y = 21 # odd
@@ -156,7 +159,7 @@ def graycode_projection(proj_list, path, save_pattern=False):
         print('Adjusting exposure...', end='')
         p.start()
         filename = path + 'auto_proj%d.jpg' % (n + 1)
-        iso, shutter = theta.auto_adjust_exposure(filename)
+        iso, shutter = theta.auto_adjust_exposure(filename, EV=EV)
         p.end()
         print('ISO:', iso, ', Shutter:', shutter)
         
@@ -302,7 +305,7 @@ def graycode_projection_tkinter(proj_list, path, save_pattern=False):
         print('Adjusting exposure...', end='')
         p.start()
         filename = path + 'auto_proj%d.jpg' % (n + 1)
-        iso, shutter = theta.auto_adjust_exposure(filename)
+        iso, shutter = theta.auto_adjust_exposure(filename, EV=EV)
         p.end()
         print('ISO:', iso, ', Shutter:', shutter)
         
@@ -566,6 +569,12 @@ def graycode_analysis(screen_list, path):
         polar_sample = polar[index_masker]
         azimuth_sample = azimuth[index_masker]
         points_sample = np.c_[proj_x_sample, proj_y_sample]
+
+        proj_x = proj_x[np.where((x_starting <= proj_x)
+                        & (proj_x <= (x_starting + proj_HW[1])))]
+        proj_y = proj_y[np.where((y_starting <= proj_y)
+                        & (proj_y <= (y_starting + proj_HW[0])))]
+
         
         p.end()
 

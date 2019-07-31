@@ -263,7 +263,7 @@ class ThetaS():
             return 1
         
     
-    def auto_adjust_exposure(self, filename, iso=100):
+    def auto_adjust_exposure(self, filename, iso=100, EV=0):
         # ISO100 priority, daylight
         self.set_exposureProgram(9) # ISO優先
         self.set_filter('off') # 画像加工フィルタoff
@@ -274,6 +274,7 @@ class ThetaS():
         exif = get_exif(filename)
         s = exif['ExposureTime']
         shutter = s[0] / s[1]
+        shutter *= 2 ** EV
         
         # 露出を固定
         self.set_exposureProgram(1) # マニュアル露出
