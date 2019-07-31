@@ -656,8 +656,8 @@ def graycode_analysis(screen_list, path):
     overlap_y = np.hstack(overlap_y).astype(np.int)
     overlap_weight = np.hstack(overlap_weight)
 
-    overlap_tone_input = src.tone_input
-    overlap_tone_output = src.tone_output
+    overlap_tone_input = scr.tone_input
+    overlap_tone_output = scr.tone_output
 
     
     mapper = (

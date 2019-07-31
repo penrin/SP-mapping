@@ -15,7 +15,9 @@ import graycode
 
 
 def check_mapper(mapper):
-    x, y, polar, azimuth, ovlp_x, ovlp_y, ovlp_w = mapper
+    x, y, polar, azimuth, ovlp_x, ovlp_y, ovlp_w,\
+                                tone_input, tone_output = mapper
+
     
     img = cv2.imread(path + 'projector_1.png')
     H, W, _ = img.shape
@@ -57,7 +59,8 @@ def save_mapper(mapper):
     p = util.Propeller()
     p.start()
 
-    x, y, polar, azimuth, ovlp_x, ovlp_y, ovlp_weight = mapper
+    x, y, polar, azimuth, ovlp_x, ovlp_y, ovlp_weight,\
+                                tone_input, tone_output = mapper
     
     filename = path + 'mapping_table.npz'
     np.savez(filename, 
@@ -66,7 +69,9 @@ def save_mapper(mapper):
             azimuth=azimuth,
             ovlp_x=ovlp_x,
             ovlp_y=ovlp_y,
-            ovlp_weight=ovlp_weight
+            ovlp_weight=ovlp_weight,
+            tone_input=tone_input,
+            tone_output=tone_output
             )
 
     p.end()
@@ -105,7 +110,6 @@ if __name__ == '__main__':
     # gray-code pattern analysis
     screen_list = screen.set_config(path)
     mapper = graycode.graycode_analysis(screen_list, path)
-    
     
     check_mapper(mapper)
     save_mapper(mapper)
