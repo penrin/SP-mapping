@@ -1,10 +1,11 @@
 import sys
+import os
 import cv2
 import numpy as np
 from scipy import interpolate
 import time
 from math import ceil
-
+import argparse
 
 
 class ProgressBar():
@@ -123,14 +124,14 @@ def convert_image():
     i3 = index_table[sy1, sx2]
     i4 = index_table[sy2, sx2]
     
-    # gamma
+    # de-gamma
     data = (img[ii[0], ii[1], :] / 255) ** gamma
     
     # mapping
     data = data[i1, :] * w1 + data[i2, :] * w2\
          + data[i3, :] * w3 + data[i4, :] * w4
     
-    # degamma
+    # gamma
     data = data ** (contrast / gamma)
     data[np.where(data > 1.)] = 1.
 
@@ -222,42 +223,41 @@ def convert_video():
     
     # ----- 各種ルックアップテーブル作成 -----
     if LUT_quality == 'uint16':
-        # gamma
-        LUT_gamma = (((np.arange(256) / 255) ** gamma) * 60000).astype(np.uint16)
+        # de-gamma
+        LUT_degamma = (((np.arange(256) / 255) ** gamma) * 65535).astype(np.uint16)
         # bilinear weight
-        LUT_bili = np.empty([60001, 256], dtype=np.uint16)
-        arr = np.arange(60001)
+        LUT_bili = np.empty([65536, 256], dtype=np.uint16)
+        arr = np.arange(65536)
         for i in range(256):
             LUT_bili[:, i] = arr * (i / 255)
-        # de-gamma
-        LUT_degamma = (
-                (np.arange(65536) / 60000) ** (contrast / gamma) * 60000
+        # gamma
+        LUT_gamma = (
+                (np.arange(65536) / 65535) ** (contrast / gamma) * 65535
                 ).astype(np.uint16)
-        LUT_degamma[60000:] = 60000
         # overlap weight
         if overlap:
-            tone_input = mapper['tone_input'] / 255 * 60000
-            tone_output = mapper['tone_output'] / 255 * 60000
+            tone_input = mapper['tone_input'] / 255 * 65535
+            tone_output = mapper['tone_output'] / 255 * 65535
             f_i2o = interpolate.interp1d(tone_input, tone_output, kind='cubic')
             f_o2i = interpolate.interp1d(tone_output, tone_input, kind='cubic')
-            LUT_ovlp = np.zeros([60001, 256], dtype=np.uint16)
-            arr = np.arange(60001)
+            LUT_ovlp = np.zeros([65536, 256], dtype=np.uint16)
+            arr = np.arange(65536)
             for i in range(1, 256):
                 w = i / 255
                 LUT_ovlp[:, i] = f_o2i(f_i2o(arr) * w)
         # LUT export
-        LUT_16to8 = (np.arange(60001) / 60000 * 255).astype(np.uint8)
+        LUT_16to8 = (np.arange(65536) / 65535 * 255).astype(np.uint8)
         
     elif LUT_quality == 'uint8':
-        # gamma
-        LUT_gamma = (((np.arange(256) / 255) ** gamma) * 255).astype(np.uint8)
+        # de-gamma
+        LUT_degamma = (((np.arange(256) / 255) ** gamma) * 255).astype(np.uint8)
         # bilinear weight
         LUT_bili = np.empty([256, 256], dtype=np.uint8)
         arr = np.arange(256)
         for i in range(256):
             LUT_bili[:, i] = arr * (i / 255)
-        # de-gamma
-        LUT_degamma = (
+        # gamma
+        LUT_gamma = (
                 (np.arange(256) / 255) ** (contrast / gamma) * 255
                 ).astype(np.uint16)
         # overlap weight
@@ -278,7 +278,8 @@ def convert_video():
 
     print('Converting')
     nframes = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    nframes = 120
+    if (nframes_ > 0) & (nframes_ < nframes):
+        nframes = nframes_
     fps = cap.get(cv2.CAP_PROP_FPS)
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     writer = cv2.VideoWriter(outfilename, fourcc, fps, (proj_HW[1], proj_HW[0]))
@@ -320,11 +321,11 @@ def convert_video():
             buff_i[:, :, i] = frame[ii[0], ii[1], :]
         if tt: t.stop()
         
-        # gamma
+        # de-gamma
         if tt:
-            print('gamma')
+            print('de-gamma')
             t.start()
-        buff_i = LUT_gamma[buff_i]
+        buff_i = LUT_degamma[buff_i]
         if tt: t.stop()
         
         # mapping
@@ -335,11 +336,11 @@ def convert_video():
                 + LUT_bili[buff_i[i3], w3] + LUT_bili[buff_i[i4], w4]
         if tt: t.stop()
 
-        # 1 / gamma
+        # gamma
         if tt:
-            print('de-gamma')
+            print('gamma')
             t.start()
-        buff_o1 = LUT_degamma[buff_o1]
+        buff_o1 = LUT_gamma[buff_o1]
         if tt: t.stop()
         
         # overlap
@@ -371,44 +372,40 @@ def convert_video():
     
 if __name__ == '__main__':
     
-    '''
+    
     parser = argparse.ArgumentParser()
-    #parser.add_argument('arg1', help='path to working folder')
+    parser.add_argument('filename', help='output filename')
     parser.add_argument('-i', type=str, help='input image or movie filename', required=True)
-    parser.add_argument('-d', type=str, help='working directory', required=True)
-    parser.add_argument('--interp', type=str, default='bilinear')
-    parser.add_argument('--gamma', type=float, default=2.2, help='Gamma')
-    parser.add_argument('arg1', default=None)
+    parser.add_argument('-d', type=str, help='path to working folder', required=True)
+    parser.add_argument('--contrast', type=float, default=1.0, help='Contrast (default: Gamma 1.0)')
+    parser.add_argument('--nframes', type=int, default=0, help='number of frames to video convert')
+    parser.add_argument('--gamma', type=float, default=2.2, help='Gamma (default: 2.2)')
+    parser.add_argument('--bitdepth', type=str, default='uint16', help='bit depth: uint16 or uint8 (default: uint16)')
     args = parser.parse_args()
+
     path = args.d
     infilename = args.i
-    outfilename = args.arg1
-    '''
+    outfilename = args.filename
+    gamma = args.gamma
+    contrast = args.contrast
+    LUT_quality = args.bitdepth
+    nframes_ = args.nframes
 
     
-    path = '../../workfolder_1'
     if path[-1] != '/':
         path += '/'
     
     mapper = np.load(path + 'mapping_table.npz')    
-
-    infilename = '/Users/penrin/Desktop/sample_2.JPG'
-    outfilename = path + 'output.jpg'
-    infilename = '/Users/penrin/Desktop/190712_YANMAR/Garmin/V1780536.MP4'
-    outfilename = path + 'output_123.mp4'
-    
-    
-    gamma = 2.2
-    contrast = 1.0
-    LUT_quality = 'uint16' # 'uint8'
     proj_img = cv2.imread(path + 'projector_1.png')
     proj_HW = proj_img.shape[0], proj_img.shape[1]
-    
 
     img = cv2.imread(infilename)
     if img is not None:
         convert_image()
     else:
+        base, ext = os.path.splitext(outfilename)
+        if ext != 'mp4':
+            outfilename = base + '.mp4'
         cap = cv2.VideoCapture(infilename)
         convert_video()
         cap.release()

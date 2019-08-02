@@ -78,41 +78,51 @@ def save_mapper(mapper):
 
 
 
+
+
 if __name__ == '__main__':
      
-
-    '''
     parser = argparse.ArgumentParser()
-    parser.add_argument('arg1', help='path to working folder')
+    parser.add_argument('path', help='path to working folder')
+    parser.add_argument('-c', '--capture', action='store_true', help='capturing only')
+    parser.add_argument('-a', '--analysis', action='store_true', help='analysis only')
+    parser.add_argument('--ev', type=float, default=0.0, help='RICOH THETA exposure compensation')
+    parser.add_argument('--grey', type=int, default=128, help='Brightness value of reference grey 0--255')
     args = parser.parse_args()
+    path = args.path
+    cap = args.capture
+    ana = args.analysis
+    EV = args.ev
+    GRAY_VALUE = args.grey
+
     
-    path = args.arg1
-    '''
-    path = '../../workfolder_1'
+    if (cap == False) & (ana == False):
+        cap = True
+        ana = True
+    
     if path[-1] != '/':
         path += '/'
     if not os.path.isdir(path):
         raise Exception('%s is not exists.' % path)
 
-
-    '''
     # gray-code pattern display & capture
-    proj_list = projector.set_config(path)
-    projector.inspect_projectors(proj_list)
-    if os.name == 'nt':
-        print('Windows mode')
-        graycode.graycode_projection_tkinter(proj_list, path)
-    else:
-        graycode.graycode_projection(proj_list, path)
-    ''' 
-    
-    
+    if cap == True:
+        proj_list = projector.set_config(path)
+        projector.inspect_projectors(proj_list)
+        if os.name == 'nt':
+            print('Windows mode')
+            graycode.graycode_projection_tkinter(
+                    proj_list, path, EV=EV, GRAY_VALUE=GRAY_VALUE)
+        else:
+            graycode.graycode_projection(
+                    proj_list, path, EV=EV, GRAY_VALUE=GRAY_VALUE)
+        
     # gray-code pattern analysis
-    screen_list = screen.set_config(path)
-    mapper = graycode.graycode_analysis(screen_list, path)
-    
-    check_mapper(mapper)
-    save_mapper(mapper)
+    if ana == True:
+        screen_list = screen.set_config(path)
+        mapper = graycode.graycode_analysis(screen_list, path)
+        check_mapper(mapper)
+        save_mapper(mapper)
     
 
 

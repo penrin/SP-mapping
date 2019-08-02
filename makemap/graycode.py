@@ -105,7 +105,8 @@ def _graycodepattern_y(aspect):
 
 
 
-def graycode_projection(proj_list, path, save_pattern=False):
+def graycode_projection(proj_list, path,
+        save_pattern=False, EV=0, GRAY_VALUE=100):
     
     config = {}
     config['num_projectors'] = len(proj_list)
@@ -245,7 +246,8 @@ def tk_imshow(canvas, img):
     return
 
 
-def graycode_projection_tkinter(proj_list, path, save_pattern=False):
+def graycode_projection_tkinter(proj_list, path,
+            save_pattern=False, EV=0, GRAY_VALUE=100):
     
     tkroot = tkinter.Tk()
     tkroot.update()

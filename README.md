@@ -3,6 +3,8 @@ SP-mapping
 
 Spherical picture mapping.
 
+全天球カメラ映像（静止画・動画）を，没入型ディスプレイに投影するための，
+マッピングテーブル作成およびマッピング処理を行う。
 
 
 
@@ -12,6 +14,7 @@ Requirments
 * numpy
 * scipy
 * opencv-python
+
 
 Equipment
 ---------
@@ -27,8 +30,27 @@ Equipment
 
 
 
-Making mapping-table
---------------------
+ワークフロー
+----------
+
+マッピングの作業は大きく，(1)マッピングテーブル作成，(2)マッピング処理，に分けられる。
+
+#### (1) マッピングテーブル作成
+* プロジェクタの各画素が視聴位置から見てどの方向に投影されるか，対応表を作成する。RICOH THETA S を使った自動測定。
+* 測定の前準備として，以下の設定ファイルを手動で作成する。詳しくは後述。
+	- `projector_#.png`: 各プロジェクタの統合モニタ上での担当区画の設定
+	- `screen_#.png`: 各プロジェクタの担当投影領域の設定
+	- `screen_overlap.json`: オーバラップ投影に関する設定
+* 設定ファイルを作成後，測定プログラムを実行する。
+
+#### (2) マッピング処理
+* マッピングテーブルを元に，全天球映像をマッピングして投影用映像を作成する。
+
+
+
+(1) マッピングテーブル作成
+----------------------
+
 
 ### 1. multi-projector setting
 * 複数のプロジェクタが，仮想敵に単一モニタとして統合されているとする。各プロジェクタがそれぞれ統合モニタ上のどの区画に対応しているか，プロジェクタ台数分の数の png ファイルでそれぞれ表現する。
@@ -85,10 +107,88 @@ overlap_setting.json の例:
 
 
 ### 3. 測定
-*	Wireless LAN connection with THETA
+
+THETA との Wi-Fi 接続を確認し，以下を実行する。
+グレイコードパターンの投影・撮影が行われたのち，マッピングテーブルが作成される。
+
+```
+$ python makemap path2workfolder
+```
 
 
-Mapping spherical image
------------------------
+
+* 撮影された画像をみて，空間コードの明るさが適切でない場合，`--ev`オプションで露出補正して測定をやり直す。
+* 撮影された画像をみて，リファレンスのグレーの明るさが適切でない場合，`--grey`オプションで輝度値を設定し，測定をやり直す。
+* Windows PC では，プロジェクタをメインディスプレイに設定する必要がある。
+
+
+
+
+
+
+
+
+(2) マッピング処理
+----------------
+
+
+
+### 基本コマンド
+
+```
+$ python convert -i path2input.mp4 -d path2workfolder output_filename.mp4
+
+```
+
+* `-i`で，正距円筒座標形式の静止画または動画ファイルを指定する。
+* `-d`で，マッピングテーブルを作成したディレクトリを指定する。
+* 第一引数で，書き出すファイル名を指定する。
+
+
+### オプションについて
+
+#### --gamma
+マッピング処理における画素値の決定にはバイリニア補間を使用している。
+バイリニア補間ではリニア特性の画像が必要なので，入力画像のガンマ補正を除去する前処理を行っている。
+また補間後には再びガンマ補正を施している。
+補正除去では 1/Gamma のガンマカーブ，再補正では Gamma のガンマカーブを用いて，階調の変換を行う。
+デフォルトで Gamma=2.2 としている。`--gamma`において，Gamma 値を変更できる。
+
+#### --contrast
+マッピング処理時に簡易的なコントラスト調整を行えるようにしている。
+コントラスト調整の実態は，ガンマカーブによる階調補正で，`--contrast`により Gamma 値を設定する。
+設定値を 1.0 より大きくすることで，中間輝度が暗くなる。
+全方位のプロジェクタ投影では，ハレーションにより映像が白けやすい。
+そのため，事前に映像のコントラストを上げることが多い。
+
+#### --bitdepth
+マッピング処理中の画像のビット深度を，16 bit または 8 bit のいずれかを選べる。
+8 bit にすると多少高速になるが，処理を重ねるうちに量子化誤差が大きくなるようで，目で見て分かる違いが現れる。
+
+#### --nframes
+動画マッピング時に，先頭から何フレームに対して処理するか指定する。
+設定値を 0 とすると，全フレームをマッピングする。デフォルトは 0。
+
+
+###ヘルプ
+
+```
+$ python convert -h
+usage:  [-h] -i I -d D [--contrast CONTRAST] [--nframes NFRAMES]
+        [--gamma GAMMA] [--bitdepth BITDEPTH]
+        filename
+
+positional arguments:
+  filename             output filename
+
+optional arguments:
+  -h, --help           show this help message and exit
+  -i I                 input image or movie filename
+  -d D                 path to working folder
+  --contrast CONTRAST  Contrast (defalut: Gamma 1.0)
+  --nframes NFRAMES    number of frames to video convert
+  --gamma GAMMA        Gamma (defalut: 2.2)
+  --bitdepth BITDEPTH  bit depth: uint16 or uint8 (defalut: uint16)
+```
 
 
