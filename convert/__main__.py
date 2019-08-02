@@ -1,7 +1,6 @@
 import sys
 import cv2
 import numpy as np
-from scipy import sparse
 from scipy import interpolate
 import time
 from math import ceil
