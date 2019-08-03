@@ -129,9 +129,9 @@ class Screen():
 def set_config(path2work):
     
     # get THETA S image size 
-    img = cv2.imread(path2work + 'gray_proj1_grey.jpg')
+    img = cv2.imread(path2work + 'gray_proj1_x0_posi.jpg')
     if img is None:
-        msg = '%s could not read.' % (path2work + 'gray_proj1_grey.jpg')
+        msg = '%s could not read.' % (path2work + 'gray_proj1_x0_posi.jpg')
         raise Exception(msg)
     size = img.shape[0:2]
     
