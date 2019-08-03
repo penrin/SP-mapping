@@ -12,7 +12,7 @@ import concavehull
 import util
 
 
-GRAY_VALUE = 100
+GREY_VALUE = 100
 EV = -2
 
 
@@ -62,12 +62,12 @@ def graycodepattern(aspect, axis='x', BGR=False):
     imgs = []
     if BGR == False:
         for i in range(nbits):
-            imgs.append(img[:, :, i])
+            img_bgr = np.zeros([aspect[0], aspect[1], 3], dtype=np.uint8)
+            img_bgr[:, :, 1] = img[:, :, i]
+            imgs.append(img_bgr)
 
     if BGR == True:
         n_img = int(np.ceil(nbits / 3))
-        img_bgr = np.zeros([aspect[0], aspect[1], n_img, 3], dtype=np.uint8)
-        
         for i in range(n_img):
             img_bgr = np.zeros([aspect[0], aspect[1], 3], dtype=np.uint8)
             for j in range(3):
@@ -106,7 +106,7 @@ def _graycodepattern_y(aspect):
 
 
 def graycode_projection(proj_list, path,
-        save_pattern=False, EV=0, GRAY_VALUE=100):
+        save_pattern=False, EV=0, GREY_VALUE=100, BGR=False):
     
     config = {}
     config['num_projectors'] = len(proj_list)
@@ -148,7 +148,10 @@ def graycode_projection(proj_list, path,
         
         # grey color
         grey = proj.gen_canvas()
-        grey[:] = GRAY_VALUE
+        if BGR == True:
+            grey[:] = GREY_VALUE
+        else:
+            grey[:, :, 1] = GREY_VALUE
         disp_img = proj.add_base(grey)
         if save_pattern:
             filename = path + 'proj_gray_proj%d_grey.png' % (n + 1)
@@ -174,7 +177,7 @@ def graycode_projection(proj_list, path,
         filename_list.append(filename)
 
         # x-axis
-        ret = graycodepattern(proj.aspect, axis='x', BGR=True)
+        ret = graycodepattern(proj.aspect, axis='x', BGR=BGR)
         imgs, nbits, offset = ret
         for i in range(len(imgs)):
             # display
@@ -189,13 +192,13 @@ def graycode_projection(proj_list, path,
             URI_list.append(URI)
             filename = 'gray_proj%d_x%d.jpg' % (n + 1, i)
             filename_list.append(filename)
-        config_sub['xgraycode_BGR'] = True
+        config_sub['xgraycode_BGR'] = BGR
         config_sub['xgraycode_num_image'] = len(imgs)
         config_sub['xgraycode_num_bits'] = nbits
         config_sub['xgraycode_offset'] = offset
 
         # y-axis
-        ret = graycodepattern(proj.aspect, axis='y', BGR=True)
+        ret = graycodepattern(proj.aspect, axis='y', BGR=BGR)
         imgs, nbits, offset = ret
         for i in range(len(imgs)):
             # display
@@ -210,7 +213,7 @@ def graycode_projection(proj_list, path,
             URI_list.append(URI)
             filename = 'gray_proj%d_y%d.jpg' % (n + 1, i)
             filename_list.append(filename)
-        config_sub['ygraycode_BGR'] = True
+        config_sub['ygraycode_BGR'] = BGR
         config_sub['ygraycode_num_image'] = len(imgs)
         config_sub['ygraycode_num_bits'] = nbits
         config_sub['ygraycode_offset'] = offset
@@ -247,7 +250,7 @@ def tk_imshow(canvas, img):
 
 
 def graycode_projection_tkinter(proj_list, path,
-            save_pattern=False, EV=0, GRAY_VALUE=100):
+            save_pattern=False, EV=0, GREY_VALUE=100, BGR=False):
     
     tkroot = tkinter.Tk()
     tkroot.update()
@@ -296,7 +299,10 @@ def graycode_projection_tkinter(proj_list, path,
         
         # grey color
         grey = proj.gen_canvas()
-        grey[:] = GRAY_VALUE
+        if BGR == True:
+            grey[:] = GREY_VALUE
+        else:
+            grey[:, :, 1] = GREY_VALUE
         disp_img = proj.add_base(grey)
         if save_pattern:
             filename = path + 'proj_gray_proj%d_grey.png' % (n + 1)
@@ -321,7 +327,7 @@ def graycode_projection_tkinter(proj_list, path,
         filename_list.append(filename)
 
         # x-axis
-        ret = graycodepattern(proj.aspect, axis='x', BGR=True)
+        ret = graycodepattern(proj.aspect, axis='x', BGR=BGR)
         imgs, nbits, offset = ret
         for i in range(len(imgs)):
             # display
@@ -336,13 +342,13 @@ def graycode_projection_tkinter(proj_list, path,
             URI_list.append(URI)
             filename = 'gray_proj%d_x%d.jpg' % (n + 1, i)
             filename_list.append(filename)
-        config_sub['xgraycode_BGR'] = True
+        config_sub['xgraycode_BGR'] = BGR
         config_sub['xgraycode_num_image'] = len(imgs)
         config_sub['xgraycode_num_bits'] = nbits
         config_sub['xgraycode_offset'] = offset
 
         # y-axis
-        ret = graycodepattern(proj.aspect, axis='y', BGR=True)
+        ret = graycodepattern(proj.aspect, axis='y', BGR=BGR)
         imgs, nbits, offset = ret
         for i in range(len(imgs)):
             # display
@@ -357,7 +363,7 @@ def graycode_projection_tkinter(proj_list, path,
             URI_list.append(URI)
             filename = 'gray_proj%d_y%d.jpg' % (n + 1, i)
             filename_list.append(filename)
-        config_sub['ygraycode_BGR'] = True
+        config_sub['ygraycode_BGR'] = BGR
         config_sub['ygraycode_num_image'] = len(imgs)
         config_sub['ygraycode_num_bits'] = nbits
         config_sub['ygraycode_offset'] = offset

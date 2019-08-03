@@ -88,12 +88,14 @@ if __name__ == '__main__':
     parser.add_argument('-a', '--analysis', action='store_true', help='analysis only')
     parser.add_argument('--ev', type=float, default=0.0, help='RICOH THETA exposure compensation')
     parser.add_argument('--grey', type=int, default=128, help='Brightness value of reference grey 0--255')
+    parser.add_argument('--rgb', action='store_true', help='RGB pattern mode')
     args = parser.parse_args()
     path = args.path
     cap = args.capture
     ana = args.analysis
     EV = args.ev
-    GRAY_VALUE = args.grey
+    GREY_VALUE = args.grey
+    BGR = args.rgb
 
     
     if (cap == False) & (ana == False):
@@ -112,10 +114,10 @@ if __name__ == '__main__':
         if os.name == 'nt':
             print('Windows mode')
             graycode.graycode_projection_tkinter(
-                    proj_list, path, EV=EV, GRAY_VALUE=GRAY_VALUE)
+                    proj_list, path, EV=EV, GREY_VALUE=GREY_VALUE, BGR=BGR)
         else:
             graycode.graycode_projection(
-                    proj_list, path, EV=EV, GRAY_VALUE=GRAY_VALUE)
+                    proj_list, path, EV=EV, GREY_VALUE=GREY_VALUE, BGR=BGR)
         
     # gray-code pattern analysis
     if ana == True:
