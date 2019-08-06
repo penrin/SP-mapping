@@ -5,6 +5,17 @@ import sys
 import time
 
 
+'''
+Reference:
+
+A. Moreira and M. Y. Santos,
+"Concave Hull: A k-Nearest Neighbours Approach for
+The Computation of The Region Occupied By A Set of Points,"
+Proc. 2nd Int. Conf. Comput. Graph. Theory Appl. (GRAPP 2007),
+Barcelona, Spain, pp. 61-68, 2006.
+
+'''
+
 def concavehull(points, k, visual=False):
     kk = max(k, 3)
     dataset = np.unique(points, axis=0).astype(np.float)
