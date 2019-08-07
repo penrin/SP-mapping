@@ -115,12 +115,12 @@ if __name__ == '__main__':
         projector.inspect_projectors(proj_list)
         if os.name == 'nt':
             print('Windows mode')
-            graycode.graycode_projection_tkinter(
-                    proj_list, path, EV=EV, GREY_VALUE=GREY_VALUE, BGR=BGR)
+            graycode.graycode_projection(proj_list, path, EV=EV,
+                    GREY_VALUE=GREY_VALUE, BGR=BGR, PN=PN, TK=True)
         else:
-            graycode.graycode_projection(
-                    proj_list, path, EV=EV, GREY_VALUE=GREY_VALUE, BGR=BGR, PN=PN)
-        
+            graycode.graycode_projection(proj_list, path, EV=EV,
+                    GREY_VALUE=GREY_VALUE, BGR=BGR, PN=PN)
+            
     # gray-code pattern analysis
     if ana == True:
         screen_list = screen.set_config(path)

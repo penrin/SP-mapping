@@ -1,11 +1,11 @@
 import numpy as np
 import cv2
 import json
-#from scipy import interpolate
 from scipy.interpolate import LinearNDInterpolator
 import matplotlib.pyplot as plt
 import tkinter
 from PIL import Image, ImageTk
+import time
 
 import theta_s
 import concavehull
@@ -21,6 +21,7 @@ KSIZE_SMOOTHING_X = 21 # odd
 KSIZE_SMOOTHING_Y = 21 # odd
 margin = KSIZE_SMOOTHING_Y // 2 + 1, KSIZE_SMOOTHING_X // 2 + 1
 
+CV_DISP_NAME = 'SP-mapping'
 
 # graycode encoding
 def gray_encode(n:int) -> int:
@@ -109,17 +110,31 @@ def _graycodepattern_y(aspect):
 
 
 
+def tk_imshow(canvas, img):
+    image_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    image_pil = Image.fromarray(image_rgb)
+    image_tk  = ImageTk.PhotoImage(image_pil)
+    canvas.create_image(0, 0, image=image_tk, anchor='nw', tag='img')
+    canvas.pack()
+    canvas.update()
+    canvas.delete('img')
+    return
 
-def graycode_projection(proj_list, path,
-        save_pattern=False, EV=0, GREY_VALUE=100, BGR=False, PN=True):
+def cv_imshow(img):
+    cv2.imshow(CV_DISP_NAME, img)
+    cv2.waitKey(10)
+    return
+
+
+def graycode_projection(proj_list, path, save_pattern=False,
+            EV=0, GREY_VALUE=100, BGR=False, PN=True, TK=False):
     
     config = {}
     config['num_projectors'] = len(proj_list)
     config['projector_whole_HW'] = proj_list[0].base_aspect
     config['camera'] = {}
     config['parameters'] = {}
-
-
+    
     # THETA
     theta = theta_s.ThetaS()
     config['camera']['model'] = 'RICOH THETA S'
@@ -131,13 +146,27 @@ def graycode_projection(proj_list, path,
     URI_list = []
     filename_list = []
     
-    cv2.namedWindow('SPM', cv2.WINDOW_NORMAL)
-    print('Ready. Press any key to start.')
-    cv2.waitKey(0)
-    cv2.setWindowProperty('SPM', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+    if TK == True:
+        tkroot = tkinter.Tk()
+        tkroot.attributes("-fullscreen", True)
+        
+        print('Ready. Press enter key to start.')
+        input()
+        tkroot.focus_force()
+        tkcanvas = tkinter.Canvas(tkroot, width=proj_list[0].base_aspect[1],
+                    height=proj_list[0].base_aspect[0], highlightthickness=0)
+    else:
+        cv2.namedWindow(CV_DISP_NAME, cv2.WINDOW_NORMAL)
+        print('Ready. Press any key to start.')
+        cv2.waitKey(0)
+        cv2.setWindowProperty(CV_DISP_NAME,
+                cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+
     print('--------------------------------')
     print('Start measurement. Don\'t touch.')
     print('--------------------------------')
+
+
 
     p = util.Propeller()
 
@@ -161,9 +190,12 @@ def graycode_projection(proj_list, path,
         if save_pattern:
             filename = path + 'proj_gray_proj%d_grey.png' % (n + 1)
             cv2.imwrite(filename, disp_img)
-        cv2.imshow('SPM', disp_img)
-        cv2.waitKey(10)
-                
+
+        if TK == True:
+            tk_imshow(tkcanvas, disp_img)
+        else:
+            cv_imshow(disp_img)
+        
         # adjust exposure
         print('Adjusting exposure...', end='')
         p.start()
@@ -192,6 +224,7 @@ def graycode_projection(proj_list, path,
         if PN == True:
             ret = graycodepattern(proj.aspect, axis='x', BGR=BGR, reverse=True)
             imgs_nega, _, _ = ret
+            
         for i in range(len(imgs)):
             
             # display & capture (posi-pattern)
@@ -199,8 +232,11 @@ def graycode_projection(proj_list, path,
             if save_pattern:
                 filename = path + 'proj_gray_proj%d_x%d_posi.png' % (n + 1, i)
                 cv2.imwrite(filename, disp_img)
-            cv2.imshow('SPM', disp_img)
-            cv2.waitKey(10)
+            if TK == True:
+                tk_imshow(tkcanvas, disp_img)
+            else:
+                cv_imshow(disp_img)
+
             
             URI = theta.take()
             URI_list.append(URI)
@@ -213,8 +249,11 @@ def graycode_projection(proj_list, path,
                 if save_pattern:
                     filename = path + 'proj_gray_proj%d_x%d_nega.png' % (n + 1, i)
                     cv2.imwrite(filename, disp_img)
-                cv2.imshow('SPM', disp_img)
-                cv2.waitKey(10)
+                if TK == True:
+                    tk_imshow(tkcanvas, disp_img)
+                else:
+                    cv_imshow(disp_img)
+
                 
                 URI = theta.take()
                 URI_list.append(URI)
@@ -234,14 +273,18 @@ def graycode_projection(proj_list, path,
         if PN == True:
             ret = graycodepattern(proj.aspect, axis='y', BGR=BGR, reverse=True)
             imgs_nega, _, _ = ret
+            
         for i in range(len(imgs)):
             # display & capture (posi-pattern)
             disp_img = proj.add_base(imgs[i])
             if save_pattern:
                 filename = path + 'proj_gray_proj%d_y%d_posi.png' % (n + 1, i)
                 cv2.imwrite(filename, disp_img)
-            cv2.imshow('SPM', disp_img)
-            cv2.waitKey(10)
+            if TK == True:
+                tk_imshow(tkcanvas, disp_img)
+            else:
+                cv_imshow(disp_img)
+
             
             URI = theta.take()
             URI_list.append(URI)
@@ -254,8 +297,11 @@ def graycode_projection(proj_list, path,
                 if save_pattern:
                     filename = path + 'proj_gray_proj%d_y%d_nega.png' % (n + 1, i)
                     cv2.imwrite(filename, disp_img)
-                cv2.imshow('SPM', disp_img)
-                cv2.waitKey(10)
+                if TK == True:
+                    tk_imshow(tkcanvas, disp_img)
+                else:
+                    cv_imshow(disp_img)
+
                 
                 URI = theta.take()
                 URI_list.append(URI)
@@ -271,8 +317,10 @@ def graycode_projection(proj_list, path,
         config['parameters']['projector_%d' % (n + 1)] = config_sub
         p.end()
     
-    cv2.destroyWindow('SPM')
-    cv2.waitKey(10)
+    if TK == True:
+        tkroot.destroy()
+    else:
+        cv2.destroyWindow(CV_DISP_NAME)
     
     # save config
     filename = path + 'graycode_config.json'
@@ -287,157 +335,6 @@ def graycode_projection(proj_list, path,
     for i in range(len(filename_list)):
         theta.save(URI_list[i], path + filename_list[i])
         pg.bar()
-
-
-def tk_imshow(canvas, img):
-    image_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    image_pil = Image.fromarray(image_rgb)
-    image_tk  = ImageTk.PhotoImage(image_pil)
-    canvas.create_image(0, 0, image=image_tk, anchor='nw', tag='img')
-    canvas.pack()
-    canvas.update()
-    canvas.delete('img')
-    return
-
-
-def graycode_projection_tkinter(proj_list, path,
-            save_pattern=False, EV=0, GREY_VALUE=100, BGR=False):
-    
-    tkroot = tkinter.Tk()
-    tkroot.update()
-    tkroot.attributes("-fullscreen", True)
-    
-    config = {}
-    config['num_projectors'] = len(proj_list)
-    config['projector_whole_HW'] = proj_list[0].base_aspect
-    config['camera'] = {}
-    config['parameters'] = {}
-
-
-    # THETA
-    theta = theta_s.ThetaS()
-    config['camera']['model'] = 'RICOH THETA S'
-    HW = theta.get_imageSize()
-    config['camera']['height'] = HW[0]
-    config['camera']['width'] = HW[1]
-    
-    # display and caputure
-    URI_list = []
-    filename_list = []
-
-
-    print('Ready. Press enter key to start.')
-    input()
-    tkroot.focus_force()
-    print('--------------------------------')
-    print('Start measurement. Don\'t touch.')
-    print('--------------------------------')
-    canvas = tkinter.Canvas(tkroot, width=proj_list[0].base_aspect[1],
-                height=proj_list[0].base_aspect[0], highlightthickness=0)
-
-    
-    p = util.Propeller()
-
-    for n, proj in enumerate(proj_list):
-        print('----- %d/%d -----' % (n + 1, len(proj_list)))
-        
-        config_sub = {}
-        config_sub['x_num_pixel'] = int(proj.aspect[1])
-        config_sub['y_num_pixel'] = int(proj.aspect[0])
-        config_sub['x_starting'] = int(proj.upperleft[1])
-        config_sub['y_starting'] = int(proj.upperleft[0])
-        
-        
-        # grey color
-        grey = proj.gen_canvas()
-        if BGR == True:
-            grey[:] = GREY_VALUE
-        else:
-            grey[:, :, 1] = GREY_VALUE
-        disp_img = proj.add_base(grey)
-        if save_pattern:
-            filename = path + 'proj_gray_proj%d_grey.png' % (n + 1)
-            cv2.imwrite(filename, disp_img)
-        tk_imshow(canvas, disp_img)
-
-        # adjust exposure
-        print('Adjusting exposure...', end='')
-        p.start()
-        filename = path + 'auto_proj%d.jpg' % (n + 1)
-        iso, shutter = theta.auto_adjust_exposure(filename, EV=EV)
-        p.end()
-        print('ISO:', iso, ', Shutter:', shutter)
-        
-        
-        print('Caputuring...', end='')
-        p.start()
-
-        URI = theta.take()
-        URI_list.append(URI)
-        filename = 'gray_proj%d_grey.jpg' % (n + 1)
-        filename_list.append(filename)
-
-        # x-axis
-        ret = graycodepattern(proj.aspect, axis='x', BGR=BGR)
-        imgs, nbits, offset = ret
-        for i in range(len(imgs)):
-            # display
-            disp_img = proj.add_base(imgs[i])
-            if save_pattern:
-                filename = path + 'proj_gray_proj%d_x%d.png' % (n + 1, i)
-                cv2.imwrite(filename, disp_img)
-            tk_imshow(canvas, disp_img)
-
-            # capture
-            URI = theta.take()
-            URI_list.append(URI)
-            filename = 'gray_proj%d_x%d.jpg' % (n + 1, i)
-            filename_list.append(filename)
-        config_sub['xgraycode_BGR'] = BGR
-        config_sub['xgraycode_num_image'] = len(imgs)
-        config_sub['xgraycode_num_bits'] = nbits
-        config_sub['xgraycode_offset'] = offset
-
-        # y-axis
-        ret = graycodepattern(proj.aspect, axis='y', BGR=BGR)
-        imgs, nbits, offset = ret
-        for i in range(len(imgs)):
-            # display
-            disp_img = proj.add_base(imgs[i])
-            if save_pattern:
-                filename = path + 'proj_gray_proj%d_y%d.png' % (n + 1, i)
-                cv2.imwrite(filename, disp_img)
-            tk_imshow(canvas, disp_img)
-
-            # capture
-            URI = theta.take()
-            URI_list.append(URI)
-            filename = 'gray_proj%d_y%d.jpg' % (n + 1, i)
-            filename_list.append(filename)
-        config_sub['ygraycode_BGR'] = BGR
-        config_sub['ygraycode_num_image'] = len(imgs)
-        config_sub['ygraycode_num_bits'] = nbits
-        config_sub['ygraycode_offset'] = offset
-        
-        config['parameters']['projector_%d' % (n + 1)] = config_sub
-        p.end()
-     
-    # save config
-    filename = path + 'graycode_config.json'
-    with open(filename, 'w') as f:
-        json.dump(config, f, indent=4)
-    
-    
-    # save images
-    print('---------------')
-    print('save images')
-    pg = util.ProgressBar2(len(filename_list))    
-    for i in range(len(filename_list)):
-        theta.save(URI_list[i], path + filename_list[i])
-        pg.bar()
-
-
-
 
 
 
