@@ -286,11 +286,8 @@ def convert_video():
     
     nbuff = 10
 
-    if LUT_quality == 'uint16':
-        buff_i = np.empty([len(ii[0]), 3, nbuff], dtype=np.uint16)
-    elif LUT_quality == 'uint8':
-        buff_i = np.empty([len(ii[0]), 3, nbuff], dtype=np.uint8)
-    buff_o = np.zeros([proj_HW[0], proj_HW[1], 3, nbuff], dtype=np.uint8)
+    buff_i = np.empty([len(ii[0]), 3, nbuff], dtype=np.uint16)
+    buff_o = np.empty([proj_HW[0], proj_HW[1], 3, nbuff], dtype=np.uint8)
     
  
     # ----- 変換 -----
@@ -304,12 +301,12 @@ def convert_video():
 
     for n in range(N):
         
-        if n == (N - 1):
-            L = nframes % nbuff
-            if L == 0:
-                L = nbuff
+        remain = nframes - n * nbuff
+        if remain < nbuff:
+            L = remain
         else:
             L = nbuff
+
         
         # read
         if tt: 
@@ -325,7 +322,7 @@ def convert_video():
         if tt:
             print('de-gamma')
             t.start()
-        buff_i = LUT_degamma[buff_i]
+        buff_i = LUT_degamma[buff_i[:, :, :L]]
         if tt: t.stop()
         
         # mapping
@@ -356,9 +353,9 @@ def convert_video():
             print('write')
             t.start()
         if LUT_quality == 'uint16':
-            buff_o[proj_y, proj_x, :, :] = LUT_16to8[buff_o1]
+            buff_o[proj_y, proj_x, :, :L] = LUT_16to8[buff_o1]
         elif LUT_quality == 'uint8':
-            buff_o[proj_y, proj_x, :, :] = buff_o1
+            buff_o[proj_y, proj_x, :, :L] = buff_o1
         for i in range(L):
             writer.write(buff_o[:, :, :, i])
         if tt: t.stop()
