@@ -17,17 +17,17 @@ class Screen():
             raise Exception(msg)
         
         png = self._resize_png(png, size)
-        png = self._add_margin(png, graycode.margin)
+        png_centering, self.horizontal_shift = self._horizontal_centering_area(png)
+        self.horizontal_shift_deg = self.horizontal_shift / size[1] * 360
+
+        self.png = self._add_margin(png_centering, graycode.margin)
         self.original_size = size
         self.margin = graycode.margin
         self.overlap_angle = overlap_angle
         self.tone_input = tone_curve[0, :]
         self.tone_output = tone_curve[1, :]
         
-        self.png, self.horizontal_shift = self._horizontal_centering_area(png)
-        self.horizontal_shift_deg = self.horizontal_shift / size[1] * 360
         self.area_polar, self.area_azimuth = self._projection_area()
-        
     
     
     def _resize_png(self, png, size):
