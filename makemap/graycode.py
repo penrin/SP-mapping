@@ -428,9 +428,9 @@ def graycode_analysis(screen_list, path):
         if not(config_sub['xgraycode_PN'] and config_sub['ygraycode_PN']):
             filename = path + 'gray_proj%d_grey.jpg' % proj_id
             img_ref = imread(filename)
+            img_ref = shift_horizontal(img_ref, scr.horizontal_shift)
             img_ref = add_equirectangular_margin(
                             img_ref, margin[1], margin[0])
-            img_ref = shift_horizontal(img_ref, scr.horizontal_shift)
             img_ref = img_ref[i1:i2, j1:j2, :]
 
         # ----- x-axis -----
@@ -444,16 +444,16 @@ def graycode_analysis(screen_list, path):
             # load image
             filename = path + 'gray_proj%d_x%d_posi.jpg' % (proj_id, i)
             img = imread(filename)
-            img = add_equirectangular_margin(img, margin[1], margin[0])
             img = shift_horizontal(img, scr.horizontal_shift)
+            img = add_equirectangular_margin(img, margin[1], margin[0])
             img = img[i1:i2, j1:j2, :]
             
             if PN == True:
                 filename = path + 'gray_proj%d_x%d_nega.jpg' % (proj_id, i)
                 img_nega = imread(filename)
+                img_nega = shift_horizontal(img_nega, scr.horizontal_shift)
                 img_nega = add_equirectangular_margin(
                                 img_nega, margin[1], margin[0])
-                img_nega = shift_horizontal(img_nega, scr.horizontal_shift)
                 img_nega = img_nega[i1:i2, j1:j2, :]
 
             # judge 0 or 1
@@ -493,15 +493,15 @@ def graycode_analysis(screen_list, path):
             # load image
             filename = path + 'gray_proj%d_y%d_posi.jpg' % (proj_id, i)
             img = imread(filename)
-            img = add_equirectangular_margin(img, margin[1], margin[0])
             img = shift_horizontal(img, scr.horizontal_shift)
+            img = add_equirectangular_margin(img, margin[1], margin[0])
             img = img[i1:i2, j1:j2, :]
             
             if PN == True:
                 filename = path + 'gray_proj%d_y%d_nega.jpg' % (proj_id, i)
                 img_nega = imread(filename)
-                img_nega = add_equirectangular_margin(img_nega, margin[1], margin[0])
                 img_nega = shift_horizontal(img_nega, scr.horizontal_shift)
+                img_nega = add_equirectangular_margin(img_nega, margin[1], margin[0])
                 img_nega = img_nega[i1:i2, j1:j2, :]
 
             # judge 0 or 1
