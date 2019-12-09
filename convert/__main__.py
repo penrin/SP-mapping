@@ -130,7 +130,7 @@ def convert_image():
     # mapping
     data = data[i1, :] * w1 + data[i2, :] * w2\
          + data[i3, :] * w3 + data[i4, :] * w4
-    
+             
     # gamma
     data = data ** (contrast / gamma)
     data[np.where(data > 1.)] = 1.
@@ -138,6 +138,23 @@ def convert_image():
     data_out = np.zeros([proj_HW[0], proj_HW[1], 3])
     data_out[proj_y, proj_x] = data
     
+    # edge blur
+    if edgeblur > 0:
+        sph_y_deg = mapper['polar']
+        edge_u = np.min(sph_y_deg)
+        edge_b = np.max(sph_y_deg)
+        i_edge_u = np.where(
+                (edge_u <= sph_y_deg) & (sph_y_deg < (edge_u + edgeblur))
+                )
+        i_edge_b = np.where(
+                ((edge_b - edgeblur) < sph_y_deg) & (sph_y_deg <= edge_b)
+                )
+        edge_u_w = (sph_y_deg[i_edge_u] - edge_u) / edgeblur
+        edge_b_w = - (sph_y_deg[i_edge_b] - edge_b) / edgeblur
+        
+        data_out[proj_y[i_edge_u], proj_x[i_edge_u]] *= edge_u_w.reshape(-1, 1)
+        data_out[proj_y[i_edge_b], proj_x[i_edge_b]] *= edge_b_w.reshape(-1, 1)
+        
     # overlap
     if len(mapper['ovlp_weight']) > 0:
         overlap = True
@@ -151,7 +168,7 @@ def convert_image():
         
         data_ovlp = data_out[ovlp_y, ovlp_x]
         data_out[ovlp_y, ovlp_x] = f_o2i(f_i2o(data_ovlp) * ovlp_w)
-        
+
     data_out *= 255
     data_out.astype(np.uint8)
 
@@ -219,7 +236,25 @@ def convert_video():
         proj_[proj_y, proj_x] = np.arange(len(sy1))
         ovlp_i = proj_[ovlp_y, ovlp_x]
     
- 
+    # ----- Preparing edge blur -----
+    if edgeblur > 0:
+        sph_y_deg = mapper['polar']
+        edge_u = np.min(sph_y_deg)
+        edge_b = np.max(sph_y_deg)
+        i_edge_u = np.where(
+                (edge_u <= sph_y_deg) & (sph_y_deg < (edge_u + edgeblur))
+                )[0]
+        i_edge_b = np.where(
+                ((edge_b - edgeblur) < sph_y_deg) & (sph_y_deg <= edge_b)
+                )[0]
+        edge_u_w = (sph_y_deg[i_edge_u] - edge_u) / edgeblur
+        edge_b_w = - (sph_y_deg[i_edge_b] - edge_b) / edgeblur
+        
+        proj_ = np.zeros(proj_HW, dtype=np.int64)
+        proj_[proj_y, proj_x] = np.arange(len(sy1))
+        edge_i_ = np.r_[i_edge_u, i_edge_b]
+        edge_i = proj_[proj_y[edge_i_], proj_x[edge_i_]]
+        edge_w = (np.r_[edge_u_w, edge_b_w] * 255).reshape(-1, 1, 1).astype(np.uint8)
     
     # ----- 各種ルックアップテーブル作成 -----
     if LUT_quality == 'uint16':
@@ -234,6 +269,14 @@ def convert_video():
         LUT_gamma = (
                 (np.arange(65536) / 65535) ** (contrast / gamma) * 65535
                 ).astype(np.uint16)
+
+        # edgeblur
+        if edgeblur > 0:
+            LUT_edgeblur = np.zeros([65536, 256], dtype=np.uint16)
+            arr = np.arange(65536)
+            for i in range(1, 256):
+                LUT_edgeblur[:, i] = (arr * (i / 255)).astype(np.uint16)
+        
         # overlap weight
         if overlap:
             tone_input = mapper['tone_input'] / 255 * 65535
@@ -260,6 +303,14 @@ def convert_video():
         LUT_gamma = (
                 (np.arange(256) / 255) ** (contrast / gamma) * 255
                 ).astype(np.uint16)
+        
+        # edge blur
+        if edgeblur > 0:
+            LUT_edgeblur = np.zeros([256, 256], dtype=np.uint8)
+            arr = np.arange(256)
+            for i in range(1, 256):
+                LUT_edgeblur[:, i] = (arr * (i / 255)).astype(np.uint8)
+
         # overlap weight
         if overlap:
             tone_input = mapper['tone_input']
@@ -340,6 +391,13 @@ def convert_video():
         buff_o1 = LUT_gamma[buff_o1]
         if tt: t.stop()
         
+        # edge blur
+        if edgeblur > 0:
+            if tt:
+                print('edge blur')
+                t.start()
+            buff_o1[edge_i] = LUT_edgeblur[buff_o1[edge_i], edge_w]
+
         # overlap
         if overlap:
             if tt:
@@ -378,6 +436,7 @@ if __name__ == '__main__':
     parser.add_argument('--nframes', type=int, default=0, help='number of frames to video convert')
     parser.add_argument('--gamma', type=float, default=2.2, help='Gamma (default: 2.2)')
     parser.add_argument('--offset', type=float, default=0.0, help='Horizontal offset (degree)')
+    parser.add_argument('--edgeblur', type=float, default=0.5, help='Edge blur (degree)')
     parser.add_argument('--bitdepth', type=str, default='uint16', help='bit depth: uint16 or uint8 (default: uint16)')
     args = parser.parse_args()
 
@@ -389,7 +448,7 @@ if __name__ == '__main__':
     LUT_quality = args.bitdepth
     nframes_ = args.nframes
     offset_x = args.offset
-
+    edgeblur = args.edgeblur
     
     if path[-1] != '/':
         path += '/'
