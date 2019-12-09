@@ -91,7 +91,7 @@ def convert_image():
     sph_HW = img.shape[0], img.shape[1]
     proj_x = mapper['x']
     proj_y = mapper['y']
-    sph_x = mapper['azimuth'] * sph_HW[1] / 360
+    sph_x = (mapper['azimuth'] - offset_x) * sph_HW[1] / 360
     sph_y = mapper['polar'] * sph_HW[0] / 180
 
     sx1 = (np.floor(sph_x) + 1).astype(np.int32)
@@ -168,7 +168,7 @@ def convert_video():
 
     proj_x = mapper['x']
     proj_y = mapper['y']
-    sph_x = mapper['azimuth'] * sph_HW[1] / 360
+    sph_x = (mapper['azimuth'] - offset_x) * sph_HW[1] / 360
     sph_y = mapper['polar'] * sph_HW[0] / 180
     
     sx1 = (np.floor(sph_x) + 1).astype(np.int32)
@@ -377,6 +377,7 @@ if __name__ == '__main__':
     parser.add_argument('--contrast', type=float, default=1.0, help='Contrast (default: Gamma 1.0)')
     parser.add_argument('--nframes', type=int, default=0, help='number of frames to video convert')
     parser.add_argument('--gamma', type=float, default=2.2, help='Gamma (default: 2.2)')
+    parser.add_argument('--offset', type=float, default=0.0, help='Horizontal offset (degree)')
     parser.add_argument('--bitdepth', type=str, default='uint16', help='bit depth: uint16 or uint8 (default: uint16)')
     args = parser.parse_args()
 
@@ -387,6 +388,7 @@ if __name__ == '__main__':
     contrast = args.contrast
     LUT_quality = args.bitdepth
     nframes_ = args.nframes
+    offset_x = args.offset
 
     
     if path[-1] != '/':
