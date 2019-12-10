@@ -145,6 +145,18 @@ $ python convert -i path2input.mp4 -d path2workfolder output_filename.mp4
 
 ### オプション
 
+#### --offset
+投影像の水平回転方向のマッピング位置を調整する。単位は度。
+右回転方向にシフトするには正の値をいれる。デフォルト値は 0.0 としている。
+
+#### --edgeblur
+画像上下のエッジをぼかす。指定した角度の範囲について，エッジに向けて徐々に輝度を落とす。
+単位は度。デフォルト値は 0.5 としている。
+
+#### --nframes
+動画マッピング時に，先頭から何フレームに対して処理するか指定する。
+設定値を 0 とすると，全フレームをマッピングする。デフォルトは 0。
+
 #### --gamma
 マッピング処理における画素値の決定にはバイリニア補間を使用している。
 バイリニア補間ではリニア特性の画像が必要なので，入力画像のガンマ補正を除去する前処理を行っている。
@@ -159,26 +171,15 @@ $ python convert -i path2input.mp4 -d path2workfolder output_filename.mp4
 全方位のプロジェクタ投影では，ハレーションにより映像が白けやすい。
 そのため，事前に映像のコントラストを上げることが多い。
 
-#### --nframes
-動画マッピング時に，先頭から何フレームに対して処理するか指定する。
-設定値を 0 とすると，全フレームをマッピングする。デフォルトは 0。
-
-#### --offset
-投影像の水平回転方向のマッピング位置を調整する。単位は度。
-右回転方向にシフトするには正の値をいれる。デフォルト値は 0.0 としている。
-
-#### --edgeblur
-画像上下のエッジをぼかす。指定した角度の範囲について，エッジに向けて徐々に輝度を落とす。
-単位は度。デフォルト値は 0.5 としている。
 
 
 ###ヘルプ
 
 ```
 $ python convert -h
-usage:  [-h] -i I -d D [--contrast CONTRAST] [--nframes NFRAMES]
-        [--gamma GAMMA] [--bitdepth BITDEPTH]
-        filename
+usage: convert [-h] -i I -d D [--offset OFFSET] [--edgeblur EDGEBLUR]
+               [--nframes NFRAMES] [--contrast CONTRAST] [--gamma GAMMA]
+               filename
 
 positional arguments:
   filename             output filename
@@ -187,10 +188,11 @@ optional arguments:
   -h, --help           show this help message and exit
   -i I                 input image or movie filename
   -d D                 path to working folder
-  --contrast CONTRAST  Contrast (defalut: Gamma 1.0)
+  --offset OFFSET      Horizontal offset (default: 0.0, unit: degree)
+  --edgeblur EDGEBLUR  Edge blur (default: 0.5, unit:degree)
   --nframes NFRAMES    number of frames to video convert
-  --gamma GAMMA        Gamma (defalut: 2.2)
-  --bitdepth BITDEPTH  bit depth: uint16 or uint8 (defalut: uint16)
+  --contrast CONTRAST  Contrast (default: Gamma 1.0)
+  --gamma GAMMA        Gamma (default: 2.2)
 ```
 
 

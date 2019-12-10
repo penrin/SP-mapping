@@ -395,11 +395,11 @@ if __name__ == '__main__':
     parser.add_argument('filename', help='output filename')
     parser.add_argument('-i', type=str, help='input image or movie filename', required=True)
     parser.add_argument('-d', type=str, help='path to working folder', required=True)
-    parser.add_argument('--contrast', type=float, default=1.0, help='Contrast (default: Gamma 1.0)')
+    parser.add_argument('--offset', type=float, default=0.0, help='Horizontal offset (default: 0.0, unit: degree)')
+    parser.add_argument('--edgeblur', type=float, default=0.5, help='Edge blur (default: 0.5, unit:degree)')
     parser.add_argument('--nframes', type=int, default=0, help='number of frames to video convert')
+    parser.add_argument('--contrast', type=float, default=1.0, help='Contrast (default: Gamma 1.0)')
     parser.add_argument('--gamma', type=float, default=2.2, help='Gamma (default: 2.2)')
-    parser.add_argument('--offset', type=float, default=0.0, help='Horizontal offset (degree)')
-    parser.add_argument('--edgeblur', type=float, default=0.5, help='Edge blur (degree)')
     args = parser.parse_args()
 
     path = args.d
