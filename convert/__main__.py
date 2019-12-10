@@ -257,76 +257,44 @@ def convert_video():
         edge_w = (np.r_[edge_u_w, edge_b_w] * 255).reshape(-1, 1, 1).astype(np.uint8)
     
     # ----- 各種ルックアップテーブル作成 -----
-    if LUT_quality == 'uint16':
-        # de-gamma
-        LUT_degamma = (((np.arange(256) / 255) ** gamma) * 65535).astype(np.uint16)
-        # bilinear weight
-        LUT_bili = np.empty([65536, 256], dtype=np.uint16)
+    # de-gamma
+    LUT_degamma = (((np.arange(256) / 255) ** gamma) * 65535).astype(np.uint16)
+
+    # bilinear weight (256-step weight)
+    LUT_bili = np.empty([65536, 256], dtype=np.uint16)
+    arr = np.arange(65536)
+    for i in range(256):
+        LUT_bili[:, i] = arr * (i / 255)
+    
+    # gamma
+    LUT_gamma = (
+            (np.arange(65536) / 65535) ** (contrast / gamma) * 65535
+            ).astype(np.uint16)
+
+    # edgeblur (256-step weight)
+    if edgeblur > 0:
+        LUT_edgeblur = np.zeros([65536, 256], dtype=np.uint16)
         arr = np.arange(65536)
-        for i in range(256):
-            LUT_bili[:, i] = arr * (i / 255)
-        # gamma
-        LUT_gamma = (
-                (np.arange(65536) / 65535) ** (contrast / gamma) * 65535
-                ).astype(np.uint16)
-
-        # edgeblur
-        if edgeblur > 0:
-            LUT_edgeblur = np.zeros([65536, 256], dtype=np.uint16)
-            arr = np.arange(65536)
-            for i in range(1, 256):
-                LUT_edgeblur[:, i] = (arr * (i / 255)).astype(np.uint16)
-        
-        # overlap weight
-        if overlap:
-            tone_input = mapper['tone_input'] / 255 * 65535
-            tone_output = mapper['tone_output'] / 255 * 65535
-            f_i2o = interpolate.interp1d(tone_input, tone_output, kind='cubic')
-            f_o2i = interpolate.interp1d(tone_output, tone_input, kind='cubic')
-            LUT_ovlp = np.zeros([65536, 256], dtype=np.uint16)
-            arr = np.arange(65536)
-            for i in range(1, 256):
-                w = i / 255
-                LUT_ovlp[:, i] = f_o2i(f_i2o(arr) * w)
-        # LUT export
-        LUT_16to8 = (np.arange(65536) / 65535 * 255).astype(np.uint8)
-        
-    elif LUT_quality == 'uint8':
-        # de-gamma
-        LUT_degamma = (((np.arange(256) / 255) ** gamma) * 255).astype(np.uint8)
-        # bilinear weight
-        LUT_bili = np.empty([256, 256], dtype=np.uint8)
-        arr = np.arange(256)
-        for i in range(256):
-            LUT_bili[:, i] = arr * (i / 255)
-        # gamma
-        LUT_gamma = (
-                (np.arange(256) / 255) ** (contrast / gamma) * 255
-                ).astype(np.uint16)
-        
-        # edge blur
-        if edgeblur > 0:
-            LUT_edgeblur = np.zeros([256, 256], dtype=np.uint8)
-            arr = np.arange(256)
-            for i in range(1, 256):
-                LUT_edgeblur[:, i] = (arr * (i / 255)).astype(np.uint8)
-
-        # overlap weight
-        if overlap:
-            tone_input = mapper['tone_input']
-            tone_output = mapper['tone_output']
-            f_i2o = interpolate.interp1d(tone_input, tone_output, kind='cubic')
-            f_o2i = interpolate.interp1d(tone_output, tone_input, kind='cubic')
-            LUT_ovlp = np.zeros([256, 256], dtype=np.uint8)
-            arr = np.arange(256)
-            for i in range(1, 256):
-                w = i / 255
-                LUT_ovlp[:, i] = f_o2i(f_i2o(arr) * w)
-    else:
-        raise Exception('LUT_quality support uint8 or uint16')
+        for i in range(1, 256):
+            LUT_edgeblur[:, i] = (arr * (i / 255)).astype(np.uint16)
     
+    # overlap weight
+    if overlap:
+        tone_input = mapper['tone_input'] / 255 * 65535
+        tone_output = mapper['tone_output'] / 255 * 65535
+        f_i2o = interpolate.interp1d(tone_input, tone_output, kind='cubic')
+        f_o2i = interpolate.interp1d(tone_output, tone_input, kind='cubic')
+        LUT_ovlp = np.zeros([65536, 256], dtype=np.uint16)
+        arr = np.arange(65536)
+        for i in range(1, 256):
+            w = i / 255
+            LUT_ovlp[:, i] = f_o2i(f_i2o(arr) * w)
+    
+    # LUT export
+    LUT_16to8 = (np.arange(65536) / 65535 * 255).astype(np.uint8)
     
 
+    # ----- 変換 -----
     print('Converting')
     nframes = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     if (nframes_ > 0) & (nframes_ < nframes):
@@ -340,8 +308,6 @@ def convert_video():
     buff_i = np.empty([len(ii[0]), 3, nbuff], dtype=np.uint16)
     buff_o = np.empty([proj_HW[0], proj_HW[1], 3, nbuff], dtype=np.uint8)
     
- 
-    # ----- 変換 -----
     print('nframe: %d' % nframes)
 
     N = int(np.ceil(nframes / nbuff))
@@ -410,10 +376,7 @@ def convert_video():
         if tt:
             print('write')
             t.start()
-        if LUT_quality == 'uint16':
-            buff_o[proj_y, proj_x, :, :L] = LUT_16to8[buff_o1]
-        elif LUT_quality == 'uint8':
-            buff_o[proj_y, proj_x, :, :L] = buff_o1
+        buff_o[proj_y, proj_x, :, :L] = LUT_16to8[buff_o1]
         for i in range(L):
             writer.write(buff_o[:, :, :, i])
         if tt: t.stop()
@@ -437,7 +400,6 @@ if __name__ == '__main__':
     parser.add_argument('--gamma', type=float, default=2.2, help='Gamma (default: 2.2)')
     parser.add_argument('--offset', type=float, default=0.0, help='Horizontal offset (degree)')
     parser.add_argument('--edgeblur', type=float, default=0.5, help='Edge blur (degree)')
-    parser.add_argument('--bitdepth', type=str, default='uint16', help='bit depth: uint16 or uint8 (default: uint16)')
     args = parser.parse_args()
 
     path = args.d
@@ -445,7 +407,6 @@ if __name__ == '__main__':
     outfilename = args.filename
     gamma = args.gamma
     contrast = args.contrast
-    LUT_quality = args.bitdepth
     nframes_ = args.nframes
     offset_x = args.offset
     edgeblur = args.edgeblur
