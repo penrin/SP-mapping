@@ -78,11 +78,19 @@ class Timer():
     def __init__(self):
         self.start_time = 0
         self.stop_time = 0
+        self.cum_time = 0
+
     def start(self):
         self.start_time = time.time()
+    
     def stop(self):
         self.stop_time = time.time()
-        print('time: %.2f' % (self.stop_time - self.start_time))
+        elapsed = self.stop_time - self.start_time
+        self.cum_time += elapsed
+        return elapsed
+    
+    def get_cum(self):
+        return self.cum_time
 
 
 
@@ -313,8 +321,14 @@ def convert_video():
     N = int(np.ceil(nframes / nbuff))
     pg = ProgressBar2(N)
     
-    tt = False
-    if tt: t = Timer()
+    if measure_time:
+        t1 = Timer()
+        t2 = Timer()
+        t3 = Timer()
+        t4 = Timer()
+        t5 = Timer()
+        t6 = Timer()
+        t7 = Timer()
 
     for n in range(N):
         
@@ -326,65 +340,60 @@ def convert_video():
 
         
         # read
-        if tt: 
-            print()
-            print('read')
-            t.start()
+        if measure_time: t1.start()
         for i in range(L):
             ret, frame = cap.read()
             buff_i[:, :, i] = frame[ii[0], ii[1], :]
-        if tt: t.stop()
+        if measure_time: t1.stop()
         
         # de-gamma
-        if tt:
-            print('de-gamma')
-            t.start()
+        if measure_time: t2.start()
         buff_i = LUT_degamma[buff_i[:, :, :L]]
-        if tt: t.stop()
+        if measure_time: t2.stop()
         
         # mapping
-        if tt:
-            print('mapping')
-            t.start()
+        if measure_time: t3.start()
         buff_o1 = LUT_bili[buff_i[i1], w1] + LUT_bili[buff_i[i2], w2]\
                 + LUT_bili[buff_i[i3], w3] + LUT_bili[buff_i[i4], w4]
-        if tt: t.stop()
+        if measure_time: t3.stop()
 
         # gamma
-        if tt:
-            print('gamma')
-            t.start()
+        if measure_time: t4.start()
         buff_o1 = LUT_gamma[buff_o1]
-        if tt: t.stop()
+        if measure_time: t4.stop()
         
         # edge blur
         if edgeblur > 0:
-            if tt:
-                print('edge blur')
-                t.start()
+            if measure_time: t5.start()
             buff_o1[edge_i] = LUT_edgeblur[buff_o1[edge_i], edge_w]
+            if measure_time: t5.stop()
 
         # overlap
         if overlap:
-            if tt:
-                print('overlap')
-                t.start()
+            if measure_time: t6.start()
             buff_o1[ovlp_i, :, :] = LUT_ovlp[buff_o1[ovlp_i, :, :], ovlp_w]
-            if tt: t.stop()
+            if measure_time: t6.stop()
         
         # write
-        if tt:
-            print('write')
-            t.start()
+        if measure_time: t7.start()
         buff_o[proj_y, proj_x, :, :L] = LUT_16to8[buff_o1]
         for i in range(L):
             writer.write(buff_o[:, :, :, i])
-        if tt: t.stop()
+        if measure_time: t7.stop()
     
         pg.bar()
         
     writer.release()
 
+    if measure_time:
+        print('read', t1.get_cum())
+        print('de-gamma', t2.get_cum())
+        print('mapping', t3.get_cum())
+        print('gamma', t4.get_cum())
+        print('edge blur', t5.get_cum())
+        print('overlap', t6.get_cum())
+        print('write', t7.get_cum())
+        
 
     
     
@@ -400,6 +409,7 @@ if __name__ == '__main__':
     parser.add_argument('--nframes', type=int, default=0, help='number of frames to video convert')
     parser.add_argument('--contrast', type=float, default=1.0, help='Contrast (default: Gamma 1.0)')
     parser.add_argument('--gamma', type=float, default=2.2, help='Gamma (default: 2.2)')
+    parser.add_argument('-T', action='store_true', help='Measure each process time')    
     args = parser.parse_args()
 
     path = args.d
@@ -410,6 +420,7 @@ if __name__ == '__main__':
     nframes_ = args.nframes
     offset_x = args.offset
     edgeblur = args.edgeblur
+    measure_time = args.T
     
     if path[-1] != '/':
         path += '/'
