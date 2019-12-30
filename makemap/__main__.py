@@ -64,14 +64,15 @@ def save_mapper(mapper):
     
     filename = path + 'mapping_table.npz'
     np.savez(filename, 
-            y=y, x=x,
-            polar=polar,
-            azimuth=azimuth,
-            ovlp_x=ovlp_x,
-            ovlp_y=ovlp_y,
-            ovlp_weight=ovlp_weight,
-            tone_input=tone_input,
-            tone_output=tone_output
+            y=y.astype(np.int64),
+            x=x.astype(np.int64),
+            polar=polar.astype(np.float64),
+            azimuth=azimuth.astype(np.float64),
+            ovlp_x=ovlp_x.astype(np.int64),
+            ovlp_y=ovlp_y.astype(np.int64),
+            ovlp_weight=ovlp_weight.astype(np.float64),
+            tone_input=tone_input.astype(np.float64),
+            tone_output=tone_output.astype(np.float64)
             )
 
     p.end()
