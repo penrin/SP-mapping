@@ -660,7 +660,7 @@ def graycode_analysis(screen_list, path):
     mapper = (
             proj_x_stack, proj_y_stack, polar_stack, azimuth_stack,
             overlap_x, overlap_y, overlap_weight,
-            overlap_tone_input, overlap_tone_output
+            overlap_tone_input, overlap_tone_output, np.array(proj_HW)
             )
     return mapper
 

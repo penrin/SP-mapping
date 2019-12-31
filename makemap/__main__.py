@@ -16,7 +16,8 @@ import graycode
 
 def check_mapper(mapper):
     x, y, polar, azimuth, ovlp_x, ovlp_y, ovlp_w,\
-                                tone_input, tone_output = mapper
+                        tone_input, tone_output, proj_HW = mapper
+
 
     
     img = cv2.imread(path + 'projector_1.png')
@@ -60,19 +61,20 @@ def save_mapper(mapper):
     p.start()
 
     x, y, polar, azimuth, ovlp_x, ovlp_y, ovlp_weight,\
-                                tone_input, tone_output = mapper
+                        tone_input, tone_output, proj_HW = mapper
     
     filename = path + 'mapping_table.npz'
     np.savez(filename, 
-            y=y.astype(np.int64),
-            x=x.astype(np.int64),
-            polar=polar.astype(np.float64),
-            azimuth=azimuth.astype(np.float64),
-            ovlp_x=ovlp_x.astype(np.int64),
-            ovlp_y=ovlp_y.astype(np.int64),
-            ovlp_weight=ovlp_weight.astype(np.float64),
-            tone_input=tone_input.astype(np.float64),
-            tone_output=tone_output.astype(np.float64)
+            y = y.astype(np.int64),
+            x = x.astype(np.int64),
+            polar = polar.astype(np.float64),
+            azimuth = azimuth.astype(np.float64),
+            ovlp_x = ovlp_x.astype(np.int64),
+            ovlp_y = ovlp_y.astype(np.int64),
+            ovlp_weight = ovlp_weight.astype(np.float64),
+            tone_input = tone_input.astype(np.float64),
+            tone_output = tone_output.astype(np.float64),
+            proj_HW = proj_HW.astype(np.int64)
             )
 
     p.end()
@@ -89,16 +91,18 @@ if __name__ == '__main__':
     parser.add_argument('-a', '--analysis', action='store_true', help='analysis only')
     parser.add_argument('--ev', type=float, default=0.0, help='RICOH THETA exposure compensation')
     parser.add_argument('--grey', type=int, default=186, help='Brightness value of reference grey 0--255')
-    parser.add_argument('--rgb', action='store_true', help='using RGB pattern')
-    parser.add_argument('--pn', action='store_true', help='using negative pattern')
+    #parser.add_argument('--rgb', action='store_true', help='using RGB pattern')
+    #parser.add_argument('--pn', action='store_true', help='using negative pattern')
+    parser.add_argument('--monocolor', action='store_true', help='using mono color pattern')
+    parser.add_argument('--posi', action='store_true', help='use only positive pattern (not recommended)')
     args = parser.parse_args()
     path = args.path
     cap = args.capture
     ana = args.analysis
     EV = args.ev
     GREY_VALUE = args.grey
-    BGR = args.rgb
-    PN = args.pn
+    BGR = not args.monocolor
+    PN = not args.posi
 
     
     if (cap == False) & (ana == False):
