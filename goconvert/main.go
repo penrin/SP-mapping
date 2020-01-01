@@ -28,7 +28,7 @@ func main() {
 	// try mapping as still video () only if
 	// ConcertStill() failed with invalid input
 	errVideo := ConvertVideo(conf)
-	if errStill != nil {
+	if errVideo != nil {
 		fmt.Println(errVideo)
 	}
 	return
@@ -43,6 +43,7 @@ type Config struct {
 	Contrast           float64
 	Gamma              float64
 	Ffmpegtemp         bool
+	Overwrite          bool
 }
 
 func ParseArg(args []string) (*Config, error) {
@@ -59,6 +60,7 @@ func ParseArg(args []string) (*Config, error) {
 	contrast := parser.Float("", "contrast", &argparse.Options{Required: false, Default: 1.0, Help: "Contrast (default: Gamma 1.0)"})
 	gamma := parser.Float("", "gamma", &argparse.Options{Required: false, Default: 2.2, Help: "Gamma (default: 2.2)"})
 	ffmpegtemp := parser.Flag("f", "ffmpeg-template", &argparse.Options{Required: false, Help: "show template options for ffmpeg"})
+	overwrite := parser.Flag("y", "overwrite", &argparse.Options{Required: false, Help: "overwrite output files"})
 
 	// Parse input
 	err := parser.Parse(os.Args)
@@ -79,6 +81,7 @@ func ParseArg(args []string) (*Config, error) {
 		Contrast:           *contrast,
 		Gamma:              *gamma,
 		Ffmpegtemp:         *ffmpegtemp,
+		Overwrite:          *overwrite,
 	}
 	return conf, nil
 }
