@@ -13,23 +13,23 @@ func ConvertVideo(conf *Config) error {
 	var err error
 
 	if conf.Ffmpegtemp {
-	    // show ffmpeg template
-	    err = showFfmpegTemplate(conf)
+		// show ffmpeg template
+		err = showFfmpegTemplate(conf)
 
 	} else if conf.OutputFileName == "-" {
-	    // stdout mode
+		// stdout mode
 		err = convertVideoStdout(conf)
-	
-    } else {
-	    // normal mode
-        err = convertVideoNormal(conf)
-    }
-    
+
+	} else {
+		// normal mode
+		err = convertVideoNormal(conf)
+	}
+
 	return err
 }
 
 func showFfmpegTemplate(conf *Config) error {
-    
+
 	// try to open as a video file
 	capture, err := gocv.OpenVideoCapture(conf.InputFileName)
 	if err != nil {
@@ -38,22 +38,28 @@ func showFfmpegTemplate(conf *Config) error {
 	defer capture.Close()
 
 	// read mapping table
-	mapTable, err := ReadMap(conf.PathToMappingTable)
+	/*
+		mapTable, err := ReadMap(conf.PathToMappingTable)
+		if err != nil {
+			return err
+		}
+	*/
+	// get projector size
+	projH, projW, err := ReadProjectorHW(conf.PathToMappingTable)
 	if err != nil {
 		return err
 	}
 
 	// show template command
 	base := fmt.Sprintf("%s -i %s -d %s - | ",
-		                os.Args[0], conf.InputFileName, conf.PathToMappingTable)
-	size := fmt.Sprintf("-s %dx%d", mapTable.ProjW, mapTable.ProjH)
+		os.Args[0], conf.InputFileName, conf.PathToMappingTable)
+	size := fmt.Sprintf("-s %dx%d", projW, projH)
 	vfmt := "-f rawvideo -pix_fmt bgr24"
 	fps := fmt.Sprintf("-framerate %f", capture.Get(gocv.VideoCaptureFPS))
 	ffmpeg := fmt.Sprintf("ffmpeg %s %s %s -i - output.mp4", vfmt, size, fps)
 	cmd := base + ffmpeg
 
-	fmt.Println("template for ffmpeg:")
-    fmt.Println(cmd)
+	fmt.Printf("template for ffmpeg:\n%s\n", cmd)
 	return nil
 }
 
@@ -98,10 +104,10 @@ func convertVideoNormal(conf *Config) error {
 
 	// read mapping table
 	/*
-	    mapTable, err := ReadMap(conf.PathToMappingTable)
-		if err != nil {
-			return err
-		}
+		    mapTable, err := ReadMap(conf.PathToMappingTable)
+			if err != nil {
+				return err
+			}
 	*/
 	return nil
 }

@@ -2,8 +2,8 @@ package main
 
 import (
 	"errors"
-    "os"
-    "path/filepath"
+	"os"
+	"path/filepath"
 
 	"github.com/penrin/gonpy"
 )
@@ -31,24 +31,63 @@ type MappingTable struct {
 }
 
 func ReadMap(f string) (*MappingTable, error) {
-    
-    filename := f
-
-    // add "/mapping_table.npz" to f is directory
-    isDir := func() bool {
-        stat, err := os.Stat(filename)
-        return (err == nil) && stat.IsDir()
-    } ()
-    if isDir {
-        filename = filepath.Join(filename, "mapping_table.npz")
-    }
-
-    // try to open
-	npz, err := gonpy.OpenNpzReader(filename)
+	npz, err := openMap(f)
 	if err != nil {
 		return nil, err
 	}
 	defer npz.Close()
+
+	mappingTable, err := fetchMap(npz)
+	if err != nil {
+		return nil, err
+	}
+	return mappingTable, nil
+}
+
+// read projector size only
+func ReadProjectorHW(f string) (int64, int64, error) {
+
+	var projH int64
+	var projW int64
+
+	npz, err := openMap(f)
+	if err != nil {
+		return projH, projW, err
+	}
+	defer npz.Close()
+
+	// read
+	npy, _ := npz.Get("proj_HW")
+	if npy.Dtype != "i8" {
+		return projH, projW, errors.New("Invalid dtype mapping table")
+	}
+	projHW, err := npy.GetInt64()
+	if err != nil {
+		return projH, projW, err
+	}
+	projH = projHW[0]
+	projW = projHW[1]
+	return projH, projW, err
+}
+
+func openMap(f string) (*gonpy.NpzReader, error) {
+
+	filename := f
+
+	// add "/mapping_table.npz" to f is directory
+	isDir := func() bool {
+		stat, err := os.Stat(filename)
+		return (err == nil) && stat.IsDir()
+	}()
+	if isDir {
+		filename = filepath.Join(filename, "mapping_table.npz")
+	}
+
+	// try to open
+	npz, err := gonpy.OpenNpzReader(filename)
+	if err != nil {
+		return nil, err
+	}
 
 	// check .npz contents
 	keyList := []string{
@@ -62,9 +101,16 @@ func ReadMap(f string) (*MappingTable, error) {
 		if npy == nil {
 			msg := "invalid mapping table. \"" + key + "\" is not included."
 			err := errors.New(msg)
+			npz.Close()
 			return nil, err
 		}
 	}
+	return npz, nil
+}
+
+func fetchMap(npz *gonpy.NpzReader) (*MappingTable, error) {
+
+	var npy *gonpy.NpyReader
 
 	// read
 	errDtype := errors.New("Invalid dtype mapping table")
