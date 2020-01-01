@@ -2,6 +2,8 @@ package main
 
 import (
 	"errors"
+    "os"
+    "path/filepath"
 
 	"github.com/penrin/gonpy"
 )
@@ -29,8 +31,20 @@ type MappingTable struct {
 }
 
 func ReadMap(f string) (*MappingTable, error) {
+    
+    filename := f
 
-	npz, err := gonpy.OpenNpzReader(f)
+    // add "/mapping_table.npz" to f is directory
+    isDir := func() bool {
+        stat, err := os.Stat(filename)
+        return (err == nil) && stat.IsDir()
+    } ()
+    if isDir {
+        filename = filepath.Join(filename, "mapping_table.npz")
+    }
+
+    // try to open
+	npz, err := gonpy.OpenNpzReader(filename)
 	if err != nil {
 		return nil, err
 	}
