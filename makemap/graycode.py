@@ -402,6 +402,7 @@ def graycode_analysis(screen_list, path):
     img_HW = config['camera']['height'], config['camera']['width']
     
     N = config['num_projectors']
+    proj_whole_HW = config['projector_whole_HW']
     proj_x_stack, proj_y_stack = [], []
     azimuth_stack, polar_stack = [], []
     overlap_x, overlap_y = [], []
@@ -656,11 +657,10 @@ def graycode_analysis(screen_list, path):
     overlap_tone_input = scr.tone_input
     overlap_tone_output = scr.tone_output
 
-    
     mapper = (
             proj_x_stack, proj_y_stack, polar_stack, azimuth_stack,
             overlap_x, overlap_y, overlap_weight,
-            overlap_tone_input, overlap_tone_output, np.array(proj_HW)
+            overlap_tone_input, overlap_tone_output, np.array(proj_whole_HW)
             )
     return mapper
 
