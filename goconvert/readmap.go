@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"math"
 	"os"
 	"path/filepath"
 
@@ -218,4 +219,158 @@ func fetchMap(npz *gonpy.NpzReader) (*MappingTable, error) {
 		ProjW:      projHW[1],
 	}
 	return mappingTable, nil
+}
+
+// PrepareMapping() calculate various indexes and weights required
+// for actual processing based on mapping-table
+type Mapper struct {
+
+	//
+	PickupIndex []int
+
+	//
+	BilinearIndex  [][]int
+	BilinearWeight [][]float64
+
+	//
+	StoreIndex []int
+	ProjH      int
+	ProjW      int
+
+	//
+	NPickup int
+	NStore  int
+	NProj   int
+}
+
+func PrepareMapping(conf *Config, inputWH []int) (*Mapper, error) {
+
+	// try to read mapping-table
+	mapTable, err := ReadMap(conf.PathToMappingTable)
+	if err != nil {
+		return nil, err
+	}
+
+	NUMPIXEL := 3 // BGR colors
+
+	// ----------------------------------------------------
+	//      PREPARATION FOR "BILINEAR INTERPOLATION"
+	// ----------------------------------------------------
+	//
+	//          x1    x2
+	//          |     |
+	//    y1 --(1)---(2)--   <= (#) is data points.
+	//          |     |
+	//          | *   |      <= * is sampling point (xSub, ySub).
+	//    y2 --(3)---(4)--
+	//          |     |
+	//
+	// sampling point data (proector RGB value) is determined
+	//  from the surrounding four points (input RGB data).
+	//
+
+	L := len(mapTable.X)
+	xSub := make([]float64, L)
+	x1 := make([]int, L)
+	x2 := make([]int, L)
+	xPixPerDeg := float64(inputWH[0]) / 360
+	for i := 0; i < L; i++ {
+		xSub[i] = (mapTable.Azimuth[i] - conf.Offset) * xPixPerDeg
+		x1[i] = int(math.Floor(xSub[i])) // round down to the nearest decimal
+		x2[i] = x1[i] + 1
+	}
+	ySub := make([]float64, L)
+	y1 := make([]int, L)
+	y2 := make([]int, L)
+	yPixPerDeg := float64(inputWH[1]) / 180
+	for i := 0; i < L; i++ {
+		ySub[i] = mapTable.Polar[i] * yPixPerDeg
+		y1[i] = int(math.Floor(ySub[i])) // round down to the nearest decimal
+		y2[i] = y1[i] + 1
+	}
+
+	// weight for bilinear interpolation
+	w1 := make([]float64, L)
+	w2 := make([]float64, L)
+	w3 := make([]float64, L)
+	w4 := make([]float64, L)
+	var dx, dy float64
+	for i := 0; i < L; i++ {
+		dx = xSub[i] - float64(x1[i])
+		dy = ySub[i] - float64(y1[i])
+		w1[i] = (1 - dx) * (1 - dy)
+		w2[i] = dx * (1 - dy)
+		w3[i] = (1 - dx) * dy
+		w4[i] = dx * dy
+	}
+
+	// roll (Must be processed after calculating the bilinear weight!!)
+	for i := 0; i < L; i++ {
+		x1[i] %= inputWH[0]
+		x2[i] %= inputWH[0]
+		y1[i] %= inputWH[1]
+		y2[i] %= inputWH[1]
+	}
+
+	// calcurate index that selects the pixels
+	// to be used for processing from input
+	isUsedPixel := make([]bool, inputWH[0]*inputWH[1])
+	for i := 0; i < L; i++ {
+		isUsedPixel[y1[i]*inputWH[0]+x1[i]] = true
+		isUsedPixel[y1[i]*inputWH[0]+x2[i]] = true
+		isUsedPixel[y2[i]*inputWH[0]+x1[i]] = true
+		isUsedPixel[y2[i]*inputWH[0]+x2[i]] = true
+	}
+	numUsedPixel := 0
+	usedPixelNumbering := make([]int, inputWH[0]*inputWH[1])
+	for i, yes := range isUsedPixel {
+		if yes {
+			usedPixelNumbering[i] = numUsedPixel
+			numUsedPixel++
+		}
+	}
+	pickupIndex := make([]int, numUsedPixel)
+	j := 0
+	for i, yes := range isUsedPixel {
+		if yes {
+			pickupIndex[j] = i * NUMPIXEL
+			j++
+		}
+	}
+
+	// index for bilinear interpolation
+	i1 := make([]int, L)
+	i2 := make([]int, L)
+	i3 := make([]int, L)
+	i4 := make([]int, L)
+	for i := 0; i < L; i++ {
+		i1[i] = usedPixelNumbering[y1[i]*inputWH[0]+x1[i]] * NUMPIXEL
+		i2[i] = usedPixelNumbering[y1[i]*inputWH[0]+x2[i]] * NUMPIXEL
+		i3[i] = usedPixelNumbering[y2[i]*inputWH[0]+x1[i]] * NUMPIXEL
+		i4[i] = usedPixelNumbering[y2[i]*inputWH[0]+x2[i]] * NUMPIXEL
+	}
+
+	// ----------------------------------------------------
+	//      PREPARATION FOR OUTPUT
+	// ----------------------------------------------------
+	// generate index for storing in output video frame.
+	// it's called storeIndex here.
+	storeIndex := make([]int, L)
+	for i := 0; i < L; i++ {
+		storeIndex[i] = int(mapTable.Y[i]*mapTable.ProjW+mapTable.X[i]) * NUMPIXEL
+	}
+
+	// bind indexes for mapping
+	mapper := &Mapper{
+		PickupIndex:    pickupIndex,
+		BilinearWeight: [][]float64{w1, w2, w3, w4},
+		BilinearIndex:  [][]int{i1, i2, i3, i4},
+		StoreIndex:     storeIndex,
+		ProjH:          int(mapTable.ProjH),
+		ProjW:          int(mapTable.ProjW),
+		NPickup:        len(pickupIndex),
+		NStore:         len(storeIndex),
+		NProj:          int(mapTable.ProjH) * int(mapTable.ProjW),
+	}
+	return mapper, nil
 }

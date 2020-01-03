@@ -42,6 +42,7 @@ type Config struct {
 	EdgeBlur           float64
 	Contrast           float64
 	Gamma              float64
+	NFrames            int
 	Ffmpegtemp         bool
 	Overwrite          bool
 }
@@ -59,6 +60,7 @@ func ParseArg(args []string) (*Config, error) {
 	edgeblur := parser.Float("", "edgeblur", &argparse.Options{Required: false, Default: 0.5, Help: "Edge blur (default: 0.5, unit:degree)"})
 	contrast := parser.Float("", "contrast", &argparse.Options{Required: false, Default: 1.0, Help: "Contrast (default: Gamma 1.0)"})
 	gamma := parser.Float("", "gamma", &argparse.Options{Required: false, Default: 2.2, Help: "Gamma (default: 2.2)"})
+	nframes := parser.Int("", "nframes", &argparse.Options{Required: false, Default: 0, Help: "number of frames to video convert"})
 	ffmpegtemp := parser.Flag("f", "ffmpeg-template", &argparse.Options{Required: false, Help: "show template options for ffmpeg"})
 	overwrite := parser.Flag("y", "overwrite", &argparse.Options{Required: false, Help: "overwrite output files"})
 
@@ -80,6 +82,7 @@ func ParseArg(args []string) (*Config, error) {
 		EdgeBlur:           *edgeblur,
 		Contrast:           *contrast,
 		Gamma:              *gamma,
+		NFrames:            *nframes,
 		Ffmpegtemp:         *ffmpegtemp,
 		Overwrite:          *overwrite,
 	}
