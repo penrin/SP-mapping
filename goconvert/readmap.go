@@ -233,6 +233,10 @@ type Mapper struct {
 	BilinearWeight [][]float64
 
 	//
+	EdgeBlurIndex  []int
+	EdgeBlurWeight []float64
+
+	//
 	StoreIndex []int
 	ProjH      int
 	ProjW      int
@@ -351,6 +355,57 @@ func PrepareMapping(conf *Config, inputWH []int) (*Mapper, error) {
 	}
 
 	// ----------------------------------------------------
+	//      PREPARATION FOR EDGE-BLUR
+	// ----------------------------------------------------
+	// calculte index and weight for Edge-blur
+	edgeBlurIndex := []int{}
+	edgeBlurWeight := []float64{}
+
+	if conf.EdgeBlur > 0 {
+
+		// bottom and upper edge
+		bottomEdge := 0.0
+		for _, v := range mapTable.Polar {
+			if v > bottomEdge {
+				bottomEdge = v
+			}
+		}
+		upperEdge := bottomEdge
+		for _, v := range mapTable.Polar {
+			if v < upperEdge {
+				upperEdge = v
+			}
+		}
+
+		// count target pixel
+		upperStart := upperEdge + conf.EdgeBlur
+		bottomStart := bottomEdge - conf.EdgeBlur
+		count := 0
+		for _, v := range mapTable.Polar {
+			if (v < upperStart) || (bottomStart < v) {
+				count++
+			}
+		}
+		L := count
+
+		// calculate index and weight
+		edgeBlurIndex = make([]int, L)
+		edgeBlurWeight = make([]float64, L)
+		count = 0
+		for i, v := range mapTable.Polar {
+			if v < upperStart {
+				edgeBlurIndex[count] = i * NUMPIXEL
+				edgeBlurWeight[count] = (v - upperEdge) / conf.EdgeBlur
+				count++
+			} else if bottomStart < v {
+				edgeBlurIndex[count] = i * NUMPIXEL
+				edgeBlurWeight[count] = (bottomEdge - v) / conf.EdgeBlur
+				count++
+			}
+		}
+	}
+
+	// ----------------------------------------------------
 	//      PREPARATION FOR OUTPUT
 	// ----------------------------------------------------
 	// generate index for storing in output video frame.
@@ -363,8 +418,10 @@ func PrepareMapping(conf *Config, inputWH []int) (*Mapper, error) {
 	// bind indexes for mapping
 	mapper := &Mapper{
 		PickupIndex:    pickupIndex,
-		BilinearWeight: [][]float64{w1, w2, w3, w4},
 		BilinearIndex:  [][]int{i1, i2, i3, i4},
+		BilinearWeight: [][]float64{w1, w2, w3, w4},
+		EdgeBlurIndex:  edgeBlurIndex,
+		EdgeBlurWeight: edgeBlurWeight,
 		StoreIndex:     storeIndex,
 		ProjH:          int(mapTable.ProjH),
 		ProjW:          int(mapTable.ProjW),
