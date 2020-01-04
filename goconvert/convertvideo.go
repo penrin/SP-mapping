@@ -12,6 +12,7 @@ import (
 const (
 	STEP_WEIGHT int = 256  // max. 256
 	STEP_STREAM int = 1024 // max. 65536
+	BUFFER_SIZE int = 0
 )
 
 func ConvertVideo(conf *Config) error {
@@ -22,13 +23,9 @@ func ConvertVideo(conf *Config) error {
 		// show ffmpeg template
 		err = showFfmpegTemplate(conf)
 
-	} else if conf.OutputFileName == "-" {
-		// stdout mode
-		err = convertVideoStdout(conf)
-
 	} else {
-		// normal mode
-		err = convertVideoNormal(conf)
+		// mapping
+		err = convertVideo(conf)
 	}
 
 	return err
@@ -61,13 +58,9 @@ func showFfmpegTemplate(conf *Config) error {
 	return nil
 }
 
-func convertVideoStdout(conf *Config) error {
-	return nil
 
-}
-
-func convertVideoNormal(conf *Config) error {
-
+func convertVideo(conf *Config) error {
+    
 	// try to open as a video file
 	capture, err := gocv.OpenVideoCapture(conf.InputFileName)
 	if err != nil {
@@ -84,24 +77,27 @@ func convertVideoNormal(conf *Config) error {
 	if err != nil {
 		return err
 	}
-
-	// try to open output file
-	if !conf.Overwrite {
-		exists := func() bool {
-			_, err := os.Stat(conf.OutputFileName)
-			return err == nil
-		}()
-		if exists {
-			return errors.New(conf.OutputFileName + " already exists")
-		}
-	}
-	fps := capture.Get(gocv.VideoCaptureFPS)
-	writer, err := gocv.VideoWriterFile(conf.OutputFileName, "avc1", fps,
-		mapper.ProjW, mapper.ProjH, true)
-	if err != nil {
-		return err
-	}
-	defer writer.Close()
+    
+    var writer *gocv.VideoWriter
+	if conf.OutputFileName != "-" { // normal mord
+        // try to open output file
+        if !conf.Overwrite {
+            exists := func() bool {
+                _, err := os.Stat(conf.OutputFileName)
+                return err == nil
+            }()
+            if exists {
+                return errors.New(conf.OutputFileName + " already exists")
+            }
+        }
+        fps := capture.Get(gocv.VideoCaptureFPS)
+        writer, err = gocv.VideoWriterFile(conf.OutputFileName, "avc1", fps,
+            mapper.ProjW, mapper.ProjH, true)
+        if err != nil {
+            return err
+        }
+        defer writer.Close()
+    }
 
 	// ----------------------------------------------------------
 	//                      MAPPING PROCESS
@@ -119,40 +115,42 @@ func convertVideoNormal(conf *Config) error {
 	inputStream := GenVideoFrame(done, capture, nframes)
 
 	// pick out pixels used for the mapping process
-	pickedStreamUint8 := PickupPixels(done, inputStream, mapper.PickupIndex)
+	pickedStreamUint8 := PickupPixels(done, inputStream, mapper)
 
 	// remove gamma corection to get linear image
-	pickedStream := RemoveGamma(done, pickedStreamUint8, conf.Gamma, mapper.NPickup)
+	pickedStream := RemoveGamma(done, pickedStreamUint8, conf, mapper)
 
 	// mapping
-	mappedStream := BilinearInterpolate(done, pickedStream, mapper.BilinearIndex, mapper.BilinearWeight)
+	mappedStream := BilinearInterpolate(done, pickedStream, mapper)
 
 	// gamma correction --> edge-blur --> overlap
-	mappedStreamUint8 := GammaCorrect(done, mappedStream, conf.Gamma, conf.Contrast, mapper.NStore)
+	mappedStreamUint8 := GammaCorrect(done, mappedStream, conf, mapper)
 
 	// store pixels to output frame
-	outputStream := StorePixels(done, mappedStreamUint8, mapper.StoreIndex, mapper.NProj)
+	outputStream := StorePixels(done, mappedStreamUint8, mapper)
 
-	// write output stream to file (pipeline consumer)
-	fmt.Println(conf.InputFileName)
-	fmt.Printf("   size: %dx%d\n", inputWH[0], inputWH[1])
-	fmt.Println(conf.OutputFileName)
-	fmt.Printf("   size: %dx%d\n\n", mapper.ProjW, mapper.ProjH)
+	if conf.OutputFileName == "-" {
+        // write output stream to stdout (pipeline consumer)
+        for output := range outputStream {
+            os.Stdout.Write(output)
+        }
+        
+    } else {
+        // write output stream to file (pipeline consumer)
+        frameNumberStream := WriteVideo(done, outputStream, writer, mapper)
 
-	imgOutput := gocv.NewMat()
-	defer imgOutput.Close()
-	cnt := 0
-	percent := 0.0
-	for buff := range outputStream {
-		percent = float64(cnt) / float64(nframes) * 100.0
-		fmt.Printf("\rMapping... %d/%d %.0f%%", cnt+1, nframes, percent)
-		cnt++
-
-		// write frame
-		imgOutput, _ = gocv.NewMatFromBytes(mapper.ProjH, mapper.ProjW, gocv.MatTypeCV8UC3, buff)
-		writer.Write(imgOutput)
-	}
-	fmt.Printf("\rMapping... %d/%d %.0f%%\n", cnt+1, nframes, percent)
+        fmt.Println(conf.InputFileName)
+        fmt.Printf("   size: %dx%d\n", inputWH[0], inputWH[1])
+        fmt.Println(conf.OutputFileName)
+        fmt.Printf("   size: %dx%d\n\n", mapper.ProjW, mapper.ProjH)
+        
+        percent := 0.0
+        for n := range frameNumberStream {
+            percent = float64(n) / float64(nframes) * 100.0
+            fmt.Printf("\rMapping... %d/%d %.0f%%", n, nframes, percent)
+        }
+        fmt.Printf("\n")
+    }
 
 	return nil
 }
@@ -161,7 +159,7 @@ func convertVideoNormal(conf *Config) error {
 func GenVideoFrame(
 	done <-chan interface{}, vc *gocv.VideoCapture, nframes int,
 ) <-chan []uint8 {
-	stream := make(chan []uint8)
+	stream := make(chan []uint8, BUFFER_SIZE)
 	go func() {
 		defer close(stream)
 		frame := gocv.NewMat()
@@ -180,13 +178,15 @@ func GenVideoFrame(
 
 // pick out pixels used for the mapping process
 func PickupPixels(
-	done <-chan interface{}, inputStream <-chan []uint8, pickupIndex []int,
+	done <-chan interface{}, inputStream <-chan []uint8, mapper *Mapper,
 ) <-chan []uint8 {
-	outputStream := make(chan []uint8)
+	pickupIndex := mapper.PickupIndex
+	L := len(pickupIndex) * 3
+	outputStream := make(chan []uint8, BUFFER_SIZE)
 	go func() {
 		defer close(outputStream)
 		for input := range inputStream {
-			pickedPixels := make([]uint8, len(pickupIndex)*3)
+			pickedPixels := make([]uint8, L)
 			i := 0
 			for _, iPick := range pickupIndex {
 				for j := 0; j < 3; j++ {
@@ -207,22 +207,22 @@ func PickupPixels(
 // remove gamma correction
 func RemoveGamma(
 	done <-chan interface{}, inputStream <-chan []uint8,
-	gamma float64, length int,
+	conf *Config, mapper *Mapper,
 ) <-chan []uint16 {
-
+	gamma := conf.Gamma
+	L := len(mapper.PickupIndex) * 3
 	// lookup table
-	// inputSteram is []uint8 type. so, LUT is 256 step.
-	var LUT [256]uint16
+	var LUT [256]uint16 // inputSteram is []uint8 type. so, LUT is 256 step.
 	maxStream := float64(STEP_STREAM - 1)
 	for i := 0; i < 256; i++ {
 		LUT[i] = uint16(math.Pow(float64(i)/255, gamma) * maxStream)
 	}
 	// process
-	outputStream := make(chan []uint16)
+	outputStream := make(chan []uint16, BUFFER_SIZE)
 	go func() {
 		defer close(outputStream)
 		for input := range inputStream {
-			y := make([]uint16, length*3)
+			y := make([]uint16, L)
 			for i, v := range input {
 				y[i] = LUT[v]
 			}
@@ -238,12 +238,12 @@ func RemoveGamma(
 
 // mapping
 func BilinearInterpolate(
-	done <-chan interface{}, inputStream <-chan []uint16,
-	bilinearIndex [][]int, bilinearWeight [][]float64,
+	done <-chan interface{}, inputStream <-chan []uint16, mapper *Mapper,
 ) <-chan []uint16 {
-
+	index := mapper.BilinearIndex
+	weight := mapper.BilinearWeight
 	maxWeight := float64(STEP_WEIGHT - 1)
-	lenOutPixels := len(bilinearIndex[0])
+	L := len(index[0])
 
 	// lookup table
 	var LUT [STEP_WEIGHT][STEP_STREAM]uint16
@@ -257,26 +257,26 @@ func BilinearInterpolate(
 	// this is used as index of LUT
 	W := make([][]int, 4)
 	for i := 0; i < 4; i++ {
-		W[i] = make([]int, lenOutPixels)
-		for j, v := range bilinearWeight[i] {
+		W[i] = make([]int, L)
+		for j, v := range weight[i] {
 			W[i][j] = int(v * maxWeight)
 		}
 	}
 
 	// process
-	outputStream := make(chan []uint16)
+	outputStream := make(chan []uint16, BUFFER_SIZE)
 	go func() {
 		defer close(outputStream)
 		cnt := 0
 		for input := range inputStream {
 			// --------------------------------------------- takes time!!!!
-			y := make([]uint16, lenOutPixels*3)
+			y := make([]uint16, L*3)
 			cnt = 0
 			for i := 0; i < 4; i++ {
 				cnt = 0
-				for j := 0; j < lenOutPixels; j++ {
-					for k := 0; k < 3; k++ {
-						y[cnt] += LUT[W[i][j]][input[bilinearIndex[i][j]+k]]
+				for j := 0; j < L; j++ {
+					for BGR := 0; BGR < 3; BGR++ {
+						y[cnt] += LUT[W[i][j]][input[index[i][j]+BGR]]
 						cnt++
 					}
 				}
@@ -294,9 +294,11 @@ func BilinearInterpolate(
 // gamma correction
 func GammaCorrect(
 	done <-chan interface{}, inputStream <-chan []uint16,
-	gamma float64, contrast float64, length int,
+	conf *Config, mapper *Mapper,
 ) <-chan []uint8 {
-
+	gamma := conf.Gamma
+	contrast := conf.Contrast
+	L := len(mapper.StoreIndex) * 3
 	// lookup table
 	var LUT [STEP_STREAM]uint8
 	maxStream := float64(STEP_STREAM - 1)
@@ -305,11 +307,11 @@ func GammaCorrect(
 	}
 
 	// process
-	outputStream := make(chan []uint8)
+	outputStream := make(chan []uint8, BUFFER_SIZE)
 	go func() {
 		defer close(outputStream)
 		for input := range inputStream {
-			y := make([]uint8, length*3)
+			y := make([]uint8, L)
 			for i := range input {
 				y[i] = LUT[input[i]]
 			}
@@ -325,16 +327,16 @@ func GammaCorrect(
 
 // store pixels to output frame
 func StorePixels(
-	done <-chan interface{}, inputStream <-chan []uint8,
-	storeIndex []int, nProjPixels int,
+	done <-chan interface{}, inputStream <-chan []uint8, mapper *Mapper,
 ) <-chan []uint8 {
-
+	storeIndex := mapper.StoreIndex
+	L := mapper.ProjW * mapper.ProjH * 3
 	// process
-	outputStream := make(chan []uint8)
+	outputStream := make(chan []uint8, BUFFER_SIZE)
 	go func() {
 		defer close(outputStream)
 		for input := range inputStream {
-			y := make([]uint8, nProjPixels*3)
+			y := make([]uint8, L)
 			cnt := 0
 			for _, v := range storeIndex {
 				for k := 0; k < 3; k++ {
@@ -351,3 +353,35 @@ func StorePixels(
 	}()
 	return outputStream
 }
+
+
+// write frame to file
+func WriteVideo(
+    done <-chan interface{}, inputStream <-chan []uint8,
+    writer *gocv.VideoWriter, mapper *Mapper,
+) <-chan int {
+    frameNumber := make(chan int)
+    go func() {
+        defer close(frameNumber)
+        cnt := 0
+        mat := gocv.NewMat()
+        defer mat.Close()
+        
+        for input := range inputStream {
+            mat, _ = gocv.NewMatFromBytes(
+                mapper.ProjH, mapper.ProjW, gocv.MatTypeCV8UC3, input)
+            writer.Write(mat)
+            cnt++
+            
+            select {
+            case <-done:
+                return
+            case frameNumber <- cnt:
+            }
+        }
+    } ()
+    return frameNumber
+}
+
+
+
