@@ -11,7 +11,7 @@ import (
 
 const (
 	STEP_WEIGHT int = 256  // max. 256
-	STEP_STREAM int = 1024 // max. 65536
+	STEP_STREAM int = 1024 // a power of 2 and less than or equal to 65536
 	BUFFER_SIZE int = 0
 )
 
@@ -60,6 +60,12 @@ func showFfmpegTemplate(conf *Config) error {
 
 
 func convertVideo(conf *Config) error {
+    
+    // ------
+    // check STEP_STREAM is a power of 2
+    
+    // ------
+
     
 	// try to open as a video file
 	capture, err := gocv.OpenVideoCapture(conf.InputFileName)
@@ -121,13 +127,14 @@ func convertVideo(conf *Config) error {
 	pickedStream := RemoveGamma(done, pickedStreamUint8, conf, mapper)
 
 	// mapping
-	mappedStream := BilinearInterpolate(done, pickedStream, mapper)
+	mappedStream1 := BilinearInterpolate(done, pickedStream, mapper)
 
 	// gamma correction --> edge-blur --> overlap
-	mappedStreamUint8 := GammaCorrect(done, mappedStream, conf, mapper)
+	mappedStream2 := GammaCorrect(done, mappedStream1, conf, mapper)
+	//mappedStream3 := EdgeBlur(done, mappedStream2, mapper)
 
 	// store pixels to output frame
-	outputStream := StorePixels(done, mappedStreamUint8, mapper)
+	outputStream := StorePixels(done, mappedStream2, mapper)
 
 	if conf.OutputFileName == "-" {
         // write output stream to stdout (pipeline consumer)
@@ -242,10 +249,10 @@ func BilinearInterpolate(
 ) <-chan []uint16 {
 	index := mapper.BilinearIndex
 	weight := mapper.BilinearWeight
-	maxWeight := float64(STEP_WEIGHT - 1)
 	L := len(index[0])
 
 	// lookup table
+	maxWeight := float64(STEP_WEIGHT - 1)
 	var LUT [STEP_WEIGHT][STEP_STREAM]uint16
 	for i := 0; i < STEP_WEIGHT; i++ {
 		for j := 0; j < STEP_STREAM; j++ {
@@ -262,7 +269,7 @@ func BilinearInterpolate(
 			W[i][j] = int(v * maxWeight)
 		}
 	}
-
+    
 	// process
 	outputStream := make(chan []uint16, BUFFER_SIZE)
 	go func() {
@@ -295,23 +302,24 @@ func BilinearInterpolate(
 func GammaCorrect(
 	done <-chan interface{}, inputStream <-chan []uint16,
 	conf *Config, mapper *Mapper,
-) <-chan []uint8 {
+) <-chan []uint16 {
 	gamma := conf.Gamma
 	contrast := conf.Contrast
 	L := len(mapper.StoreIndex) * 3
+    
 	// lookup table
-	var LUT [STEP_STREAM]uint8
+	var LUT [STEP_STREAM]uint16
 	maxStream := float64(STEP_STREAM - 1)
 	for i := 0; i < STEP_STREAM; i++ {
-		LUT[i] = uint8(math.Pow(float64(i)/maxStream, contrast/gamma) * 255)
+		LUT[i] = uint16(math.Pow(float64(i)/maxStream, contrast/gamma) * maxStream)
 	}
 
 	// process
-	outputStream := make(chan []uint8, BUFFER_SIZE)
+	outputStream := make(chan []uint16, BUFFER_SIZE)
 	go func() {
 		defer close(outputStream)
 		for input := range inputStream {
-			y := make([]uint8, L)
+			y := make([]uint16, L)
 			for i := range input {
 				y[i] = LUT[input[i]]
 			}
@@ -325,12 +333,16 @@ func GammaCorrect(
 	return outputStream
 }
 
+
+
 // store pixels to output frame
 func StorePixels(
-	done <-chan interface{}, inputStream <-chan []uint8, mapper *Mapper,
+	done <-chan interface{}, inputStream <-chan []uint16, mapper *Mapper,
 ) <-chan []uint8 {
 	storeIndex := mapper.StoreIndex
 	L := mapper.ProjW * mapper.ProjH * 3
+    nBitShift := int(math.Log2(float64(STEP_STREAM / 256)))
+
 	// process
 	outputStream := make(chan []uint8, BUFFER_SIZE)
 	go func() {
@@ -340,10 +352,11 @@ func StorePixels(
 			cnt := 0
 			for _, v := range storeIndex {
 				for k := 0; k < 3; k++ {
-					y[v+k] = input[cnt]
+					y[v+k] = uint8(input[cnt] >> nBitShift) // uint16 to uint8
 					cnt++
 				}
 			}
+
 			select {
 			case <-done:
 				return
