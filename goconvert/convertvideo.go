@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	STEP_WEIGHT int = 256  //
-	STEP_STREAM int = 2048 // a power of 2 and less than
+	STEP_WEIGHT int = 256
+	STEP_STREAM int = 4096 // STEP_STREAM must be a power of 2
 	BUFFER_SIZE int = 0
 )
 
@@ -59,11 +59,6 @@ func showFfmpegTemplate(conf *Config) error {
 }
 
 func convertVideo(conf *Config) error {
-
-	// ------
-	// check STEP_STREAM is a power of 2
-
-	// ------
 
 	// try to open as a video file
 	capture, err := gocv.OpenVideoCapture(conf.InputFileName)
@@ -130,9 +125,10 @@ func convertVideo(conf *Config) error {
 	// gamma correction --> edge-blur --> overlap
 	mappedStream2 := GammaCorrect(done, mappedStream1, conf, mapper)
 	mappedStream3 := EdgeBlur(done, mappedStream2, mapper)
+	mappedStream4 := Overlap(done, mappedStream3, mapper)
 
 	// store pixels to output frame
-	outputStream := StorePixels(done, mappedStream3, mapper)
+	outputStream := StorePixels(done, mappedStream4, mapper)
 
 	if conf.OutputFileName == "-" {
 		// write output stream to stdout (pipeline consumer)
@@ -375,6 +371,79 @@ func EdgeBlur(
 		}
 	}()
 	return outputStream
+}
+
+// overlap
+func Overlap(
+	done <-chan interface{}, inputStream <-chan []uint16, mapper *Mapper,
+) <-chan []uint16 {
+
+	index := mapper.OverlapIndex
+	weight := mapper.OverlapWeight
+
+	// lookup table
+	maxWeight := float64(STEP_WEIGHT - 1)
+	maxStream := float64(STEP_STREAM - 1)
+	var LUT [STEP_WEIGHT][STEP_STREAM]uint16
+	xi := make([]float64, STEP_STREAM)
+	for i := 0; i < STEP_STREAM; i++ {
+		xi[i] = float64(i) / maxStream
+	}
+	yi := InterpolateOverlapWeight(mapper.ToneInput, mapper.ToneOutput, xi)
+    yiWeighted := make([]float64, len(yi))
+    xiWeighted := make([]float64, len(yi))
+	w := 0.0
+	for i := 0; i < STEP_WEIGHT; i++ {
+		w = float64(i) / maxWeight
+		for j, v := range yi {
+			yiWeighted[j] = v * w
+		}
+		xiWeighted = InterpolateOverlapWeight(mapper.ToneOutput,
+			mapper.ToneInput, yiWeighted)
+		for j, v := range xiWeighted {
+			LUT[i][j] = uint16(v * maxStream)
+		}
+	}
+
+	// quantize weight
+	W := make([]int, len(weight))
+	for i, v := range weight {
+		W[i] = int(v * maxWeight)
+	}
+
+	// process
+	outputStream := make(chan []uint16, BUFFER_SIZE)
+	go func() {
+		defer close(outputStream)
+		for input := range inputStream {
+			y := make([]uint16, len(input))
+			copy(y, input) // --------------------------------------------- cost
+			for i := 0; i < len(index); i++ {
+				for BGR := 0; BGR < 3; BGR++ {
+					y[index[i]+BGR] = LUT[W[i]][input[index[i]+BGR]]
+				}
+			}
+			select {
+			case <-done:
+				return
+			case outputStream <- y:
+			}
+		}
+	}()
+	return outputStream
+}
+
+func InterpolateOverlapWeight(x, y, xi []float64) []float64 {
+    yi := make([]float64, len(xi))
+	for i, v := range xi {
+		for j := 0; j < (len(x) - 1); j++ {
+			if (x[j] <= v) && (v <= x[j+1]) {
+				yi[i] = y[j] - (y[j]-y[j+1])/(x[j]-x[j+1])*(x[j]-v)
+				break
+			}
+		}
+	}
+	return yi
 }
 
 // store pixels to output frame

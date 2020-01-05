@@ -235,6 +235,10 @@ type Mapper struct {
 	//
 	EdgeBlurIndex  []int
 	EdgeBlurWeight []float64
+	OverlapIndex   []int
+	OverlapWeight  []float64
+	ToneInput      []float64
+	ToneOutput     []float64
 
 	//
 	StoreIndex []int
@@ -258,7 +262,7 @@ func PrepareMapping(conf *Config, inputWH []int) (*Mapper, error) {
 	NUMPIXEL := 3 // BGR colors
 
 	// ----------------------------------------------------
-	//      PREPARATION FOR "BILINEAR INTERPOLATION"
+	//                 BILINEAR INTERPOLATION
 	// ----------------------------------------------------
 	//
 	//          x1    x2
@@ -355,7 +359,7 @@ func PrepareMapping(conf *Config, inputWH []int) (*Mapper, error) {
 	}
 
 	// ----------------------------------------------------
-	//      PREPARATION FOR EDGE-BLUR
+	//                      EDGE-BLUR
 	// ----------------------------------------------------
 	// calculte index and weight for Edge-blur
 	edgeBlurIndex := []int{}
@@ -386,11 +390,11 @@ func PrepareMapping(conf *Config, inputWH []int) (*Mapper, error) {
 				count++
 			}
 		}
-		L := count
+		lenIndices := count
 
 		// calculate index and weight
-		edgeBlurIndex = make([]int, L)
-		edgeBlurWeight = make([]float64, L)
+		edgeBlurIndex = make([]int, lenIndices)
+		edgeBlurWeight = make([]float64, lenIndices)
 		count = 0
 		for i, v := range mapTable.Polar {
 			if v < upperStart {
@@ -406,7 +410,63 @@ func PrepareMapping(conf *Config, inputWH []int) (*Mapper, error) {
 	}
 
 	// ----------------------------------------------------
-	//      PREPARATION FOR OUTPUT
+	//                       OVERLAP
+	// ----------------------------------------------------
+	// calculte index and weight for Overlap
+
+	// index
+	overlapIndex := make([]int, len(mapTable.OvlpX))
+	overlapWeight := make([]float64, len(mapTable.OvlpWeight))
+	toneInput := make([]float64, len(mapTable.ToneInput))
+	toneOutput := make([]float64, len(mapTable.ToneOutput))
+	if len(overlapIndex) > 0 {
+
+		projPixelsNumber := make([]int, int(mapTable.ProjH*mapTable.ProjW))
+		ii := 0
+		for n := range mapTable.X {
+			ii = int(mapTable.Y[n]*mapTable.ProjW + mapTable.X[n])
+			projPixelsNumber[ii] = n
+		}
+		for i := range overlapIndex {
+			ii = int(mapTable.OvlpY[i]*mapTable.ProjW + mapTable.OvlpX[i])
+			overlapIndex[i] = projPixelsNumber[ii] * NUMPIXEL
+		}
+
+		// weight
+		copy(overlapWeight, mapTable.OvlpWeight)
+
+		// proector's tone curve
+		if len(mapTable.ToneInput) != len(mapTable.ToneOutput) {
+			err := errors.New("invalid projector's tone data for overlap")
+			return nil, err
+		}
+		copy(toneInput, mapTable.ToneInput)
+		copy(toneOutput, mapTable.ToneOutput)
+		if toneInput[0] != 0.0 {
+			toneInput = append([]float64{0.0}, toneInput...)
+			toneOutput = append([]float64{0.0}, toneOutput...)
+		}
+		// normalize tone curve
+		maxToneIn := 0.0
+		maxToneOut := 0.0
+		for _, v := range toneInput {
+			if v > maxToneIn {
+				maxToneIn = v
+			}
+		}
+		for _, v := range toneOutput {
+			if v > maxToneOut {
+				maxToneOut = v
+			}
+		}
+		for i := range toneInput {
+			toneInput[i] /= maxToneIn
+			toneOutput[i] /= maxToneOut
+		}
+	}
+
+	// ----------------------------------------------------
+	//                        OUTPUT
 	// ----------------------------------------------------
 	// generate index for storing in output video frame.
 	// it's called storeIndex here.
@@ -415,13 +475,19 @@ func PrepareMapping(conf *Config, inputWH []int) (*Mapper, error) {
 		storeIndex[i] = int(mapTable.Y[i]*mapTable.ProjW+mapTable.X[i]) * NUMPIXEL
 	}
 
-	// bind indexes for mapping
+	// ------------------------
+	// bind indices for mapping
+	// ------------------------
 	mapper := &Mapper{
 		PickupIndex:    pickupIndex,
 		BilinearIndex:  [][]int{i1, i2, i3, i4},
 		BilinearWeight: [][]float64{w1, w2, w3, w4},
 		EdgeBlurIndex:  edgeBlurIndex,
 		EdgeBlurWeight: edgeBlurWeight,
+		OverlapIndex:   overlapIndex,
+		OverlapWeight:  overlapWeight,
+		ToneInput:      toneInput,
+		ToneOutput:     toneOutput,
 		StoreIndex:     storeIndex,
 		ProjH:          int(mapTable.ProjH),
 		ProjW:          int(mapTable.ProjW),
