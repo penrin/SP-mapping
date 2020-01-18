@@ -263,32 +263,119 @@ func BilinearInterpolate(
 		}
 	}
 
-	// process
-	outputStream := make(chan []uint16, BUFFER_SIZE)
-	go func() {
-		defer close(outputStream)
-		cnt := 0
-		for input := range inputStream {
-			// --------------------------------------------- takes time!!!!
-			y := make([]uint16, L*3)
-			cnt = 0
-			for i := 0; i < 4; i++ {
-				cnt = 0
-				for j := 0; j < L; j++ {
-					for BGR := 0; BGR < 3; BGR++ {
-						y[cnt] += LUT[W[i][j]][input[index[i][j]+BGR]]
-						cnt++
+	// ----- process -----
+	// distribute
+	distribute := func(
+		done <-chan interface{}, in <-chan []uint16,
+	) (_, _, _, _ <-chan []uint16) {
+		out1 := make(chan []uint16)
+		out2 := make(chan []uint16)
+		out3 := make(chan []uint16)
+		out4 := make(chan []uint16)
+		go func() {
+			defer close(out1)
+			defer close(out2)
+			defer close(out3)
+			defer close(out4)
+			for v := range in {
+				// copy channel
+				var out1, out2, out3, out4 = out1, out2, out3, out4
+				for i := 0; i < 4; i++ {
+					select {
+					case <-done:
+						return
+					case out1 <- v:
+						out1 = nil
+					case out2 <- v:
+						out2 = nil
+					case out3 <- v:
+						out3 = nil
+					case out4 <- v:
+						out4 = nil
 					}
 				}
 			}
-			select {
-			case <-done:
-				return
-			case outputStream <- y:
+		}()
+		return out1, out2, out3, out4
+	}
+
+	// weight
+	weighting := func(
+		done <-chan interface{}, in <-chan []uint16, index []int, weight []int,
+	) <-chan []uint16 {
+		out := make(chan []uint16)
+		go func() {
+			defer close(out)
+			cnt := 0
+			for x := range in {
+				y := make([]uint16, L*3)
+				cnt = 0
+				for j := 0; j < L; j++ {
+					for BGR := 0; BGR < 3; BGR++ {
+						y[cnt] += LUT[weight[j]][x[index[j]+BGR]]
+						cnt++
+					}
+				}
+				select {
+				case <-done:
+					return
+				case out <- y:
+				}
 			}
-		}
-	}()
-	return outputStream
+		}()
+		return out
+	}
+
+	// sum
+	sum := func(
+		done <-chan interface{}, in1, in2, in3, in4 <-chan []uint16,
+	) <-chan []uint16 {
+		out := make(chan []uint16)
+		go func() {
+			defer close(out)
+			var val []uint16
+			var ok bool
+			for {
+				var in1, in2, in3, in4 = in1, in2, in3, in4
+				vsum := make([]uint16, L*3)
+				for i := 0; i < 4; i++ {
+					select {
+					case <-done:
+						return
+					case val, ok = <-in1:
+						in1 = nil
+					case val, ok = <-in2:
+						in2 = nil
+					case val, ok = <-in3:
+						in3 = nil
+					case val, ok = <-in4:
+						in4 = nil
+					}
+					if ok == false {
+						return
+					}
+					for j, v := range val {
+						vsum[j] += v
+					}
+				}
+				select {
+				case <-done:
+					return
+				case out <- vsum:
+				}
+			}
+		}()
+		return out
+	}
+
+	// pipe
+	in0, in1, in2, in3 := distribute(done, inputStream)
+	out0 := weighting(done, in0, index[0], W[0])
+	out1 := weighting(done, in1, index[1], W[1])
+	out2 := weighting(done, in2, index[2], W[2])
+	out3 := weighting(done, in3, index[3], W[3])
+	out := sum(done, out0, out1, out2, out3)
+	return out
 }
 
 // gamma correction
@@ -390,8 +477,8 @@ func Overlap(
 		xi[i] = float64(i) / maxStream
 	}
 	yi := InterpolateOverlapWeight(mapper.ToneInput, mapper.ToneOutput, xi)
-    yiWeighted := make([]float64, len(yi))
-    xiWeighted := make([]float64, len(yi))
+	yiWeighted := make([]float64, len(yi))
+	xiWeighted := make([]float64, len(yi))
 	w := 0.0
 	for i := 0; i < STEP_WEIGHT; i++ {
 		w = float64(i) / maxWeight
@@ -434,7 +521,7 @@ func Overlap(
 }
 
 func InterpolateOverlapWeight(x, y, xi []float64) []float64 {
-    yi := make([]float64, len(xi))
+	yi := make([]float64, len(xi))
 	for i, v := range xi {
 		for j := 0; j < (len(x) - 1); j++ {
 			if (x[j] <= v) && (v <= x[j+1]) {
