@@ -293,10 +293,10 @@ def convert_video():
         f_i2o = interpolate.interp1d(tone_input, tone_output, kind='cubic')
         f_o2i = interpolate.interp1d(tone_output, tone_input, kind='cubic')
         LUT_ovlp = np.zeros([65536, 256], dtype=np.uint16)
-        arr = np.arange(65536)
+        out_tone = f_i2o(np.arange(65536))
         for i in range(1, 256):
             w = i / 255
-            LUT_ovlp[:, i] = f_o2i(f_i2o(arr) * w)
+            LUT_ovlp[:, i] = f_o2i(out_tone * w)
     
     # LUT export
     LUT_16to8 = (np.arange(65536) / 65535 * 255).astype(np.uint8)
