@@ -3,11 +3,32 @@ package main
 import (
 	"fmt"
 	"os"
+	//"log"
+	//"runtime/trace"
 
 	"github.com/akamensky/argparse"
 )
 
 func main() {
+
+	/*
+		// trace
+		f, err := os.Create("trace.out")
+		if err != nil {
+			log.Fatal("failed to create trace output file: %v", err)
+		}
+		defer func() {
+			if err := f.Close(); err != nil {
+				log.Fatal("failed to close trace output file: %v", err)
+			}
+			f.Close()
+		}()
+
+		if err := trace.Start(f); err != nil {
+			panic(err)
+		}
+		defer trace.Stop()
+	*/
 
 	// parse arguments
 	conf, err := ParseArg(os.Args)
@@ -55,7 +76,7 @@ func ParseArg(args []string) (*Config, error) {
 	// Create string flag
 	i := parser.String("i", "in", &argparse.Options{Required: true, Help: "input image or movie filename"})
 	d := parser.String("d", "map", &argparse.Options{Required: true, Help: "path to directly of mapping table"})
-	o := parser.String("o", "out", &argparse.Options{Required: false, Default: "output.mp4", Help: "output filename (default: output.mp4)"})
+	o := parser.String("o", "out", &argparse.Options{Required: false, Default: "", Help: "output filename (default: output.mp4/png)"})
 	offset := parser.Float("", "offset", &argparse.Options{Required: false, Default: 0.0, Help: "Horizontal offset (default: 0.0, unit: degree)"})
 	edgeblur := parser.Float("", "edgeblur", &argparse.Options{Required: false, Default: 0.5, Help: "Edge blur (default: 0.5, unit:degree)"})
 	contrast := parser.Float("", "contrast", &argparse.Options{Required: false, Default: 1.0, Help: "Contrast (default: Gamma 1.0)"})

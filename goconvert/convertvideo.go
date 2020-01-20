@@ -12,7 +12,7 @@ import (
 const (
 	STEP_WEIGHT int = 256
 	STEP_STREAM int = 4096 // STEP_STREAM must be a power of 2
-	BUFFER_SIZE int = 0
+	BUFFER_SIZE int = 1
 )
 
 func ConvertVideo(conf *Config) error {
@@ -60,26 +60,21 @@ func showFfmpegTemplate(conf *Config) error {
 
 func convertVideo(conf *Config) error {
 
-	// try to open as a video file
+	// try to open input file as a video
 	capture, err := gocv.OpenVideoCapture(conf.InputFileName)
 	if err != nil {
 		return err
 	}
 	defer capture.Close()
 
-	// mapping indexes
-	inputWH := []int{
-		int(capture.Get(gocv.VideoCaptureFrameWidth)),
-		int(capture.Get(gocv.VideoCaptureFrameHeight)),
-	}
-	mapper, err := PrepareMapping(conf, inputWH)
-	if err != nil {
-		return err
-	}
-
+	// try to open output file
+	// if not filename is "-", gocv write video.
+	// else, video stream output to stdout.
 	var writer *gocv.VideoWriter
-	if conf.OutputFileName != "-" { // normal mord
-		// try to open output file
+	if conf.OutputFileName != "-" {
+		if conf.OutputFileName == "" {
+			conf.OutputFileName = "output.mp4"
+		}
 		if !conf.Overwrite {
 			exists := func() bool {
 				_, err := os.Stat(conf.OutputFileName)
@@ -90,12 +85,27 @@ func convertVideo(conf *Config) error {
 			}
 		}
 		fps := capture.Get(gocv.VideoCaptureFPS)
-		writer, err = gocv.VideoWriterFile(conf.OutputFileName, "avc1", fps,
-			mapper.ProjW, mapper.ProjH, true)
+		// get projector size
+		projH, projW, err := ReadProjectorHW(conf.PathToMappingTable)
+		if err != nil {
+			return err
+		}
+		writer, err = gocv.VideoWriterFile(conf.OutputFileName, "avc1",
+			fps, int(projW), int(projH), true)
 		if err != nil {
 			return err
 		}
 		defer writer.Close()
+	}
+
+	// mapping indexes
+	inputWH := []int{
+		int(capture.Get(gocv.VideoCaptureFrameWidth)),
+		int(capture.Get(gocv.VideoCaptureFrameHeight)),
+	}
+	mapper, err := PrepareMapping(conf, inputWH)
+	if err != nil {
+		return err
 	}
 
 	// ----------------------------------------------------------
@@ -268,10 +278,10 @@ func BilinearInterpolate(
 	distribute := func(
 		done <-chan interface{}, in <-chan []uint16,
 	) (_, _, _, _ <-chan []uint16) {
-		out1 := make(chan []uint16)
-		out2 := make(chan []uint16)
-		out3 := make(chan []uint16)
-		out4 := make(chan []uint16)
+		out1 := make(chan []uint16, BUFFER_SIZE)
+		out2 := make(chan []uint16, BUFFER_SIZE)
+		out3 := make(chan []uint16, BUFFER_SIZE)
+		out4 := make(chan []uint16, BUFFER_SIZE)
 		go func() {
 			defer close(out1)
 			defer close(out2)
@@ -303,7 +313,7 @@ func BilinearInterpolate(
 	weighting := func(
 		done <-chan interface{}, in <-chan []uint16, index []int, weight []int,
 	) <-chan []uint16 {
-		out := make(chan []uint16)
+		out := make(chan []uint16, BUFFER_SIZE)
 		go func() {
 			defer close(out)
 			cnt := 0
@@ -330,7 +340,7 @@ func BilinearInterpolate(
 	sum := func(
 		done <-chan interface{}, in1, in2, in3, in4 <-chan []uint16,
 	) <-chan []uint16 {
-		out := make(chan []uint16)
+		out := make(chan []uint16, BUFFER_SIZE)
 		go func() {
 			defer close(out)
 			var val []uint16
@@ -383,15 +393,14 @@ func GammaCorrect(
 	done <-chan interface{}, inputStream <-chan []uint16,
 	conf *Config, mapper *Mapper,
 ) <-chan []uint16 {
-	gamma := conf.Gamma
-	contrast := conf.Contrast
+	gamma := conf.Contrast / conf.Gamma
 	L := len(mapper.StoreIndex) * 3
 
 	// lookup table
 	var LUT [STEP_STREAM]uint16
 	maxStream := float64(STEP_STREAM - 1)
 	for i := 0; i < STEP_STREAM; i++ {
-		LUT[i] = uint16(math.Pow(float64(i)/maxStream, contrast/gamma) * maxStream)
+		LUT[i] = uint16(math.Pow(float64(i)/maxStream, gamma) * maxStream)
 	}
 
 	// process
