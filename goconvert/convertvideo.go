@@ -174,8 +174,24 @@ func GenVideoFrame(
 		defer close(stream)
 		frame := gocv.NewMat()
 		defer frame.Close()
+		var ok bool
 		for i := 0; i < nframes; i++ {
-			_ = vc.Read(&frame)
+			ok = vc.Read(&frame)
+			if !ok {
+				if i == 0 {
+					count := 0
+					for !ok {
+						ok = vc.Read(&frame)
+						count++
+						if count > 1000 {
+							fmt.Println("too many empty frame at the beginning")
+							return
+						}
+					}
+				} else {
+					return
+				}
+			}
 			select {
 			case <-done:
 				return
