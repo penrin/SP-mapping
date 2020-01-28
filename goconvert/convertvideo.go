@@ -72,7 +72,7 @@ func convertVideo(conf *Config) error {
 	// else, video stream output to stdout.
 	var writer *gocv.VideoWriter
 	if conf.OutputFileName != "-" {
-		if conf.OutputFileName == "" {
+		if conf.OutputFileName == "output.mp4/png" {
 			conf.OutputFileName = "output.mp4"
 		}
 		if !conf.Overwrite {

@@ -27,7 +27,7 @@ func ConvertStill(conf *Config) error {
 	if conf.OutputFileName == "-" {
 		return errors.New("stdout mode is not supported for still image")
 	}
-	if conf.OutputFileName == "" {
+	if conf.OutputFileName == "output.mp4/png" {
 		conf.OutputFileName = "output.png"
 	}
 	if !conf.Overwrite {
