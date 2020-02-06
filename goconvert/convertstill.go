@@ -91,12 +91,38 @@ func ConvertStill(conf *Config) error {
 	}
 
 	// overlap
+	i2oInterp := func(xi float64) float64 {
+		x := mapper.ToneInput
+		y := mapper.ToneOutput
+		var yi float64
+		for j := 0; j < (len(x) - 1); j++ {
+			if (x[j] <= xi) && (xi <= x[j+1]) {
+				yi = y[j] - (y[j]-y[j+1])/(x[j]-x[j+1])*(x[j]-xi)
+				break
+			}
+		}
+		return yi
+	}
+	o2iInterp := func(xi float64) float64 {
+		x := mapper.ToneOutput
+		y := mapper.ToneInput
+		var yi float64
+		for j := 0; j < (len(x) - 1); j++ {
+			if (x[j] <= xi) && (xi <= x[j+1]) {
+				yi = y[j] - (y[j]-y[j+1])/(x[j]-x[j+1])*(x[j]-xi)
+				break
+			}
+		}
+		return yi
+	}
+    
 	for cnt, i := range mapper.OverlapIndex {
 		for BGR := 0; BGR < 3; BGR++ {
-			mappedPixels[i+BGR] = mappedPixels[i+BGR] * mapper.OverlapWeight[cnt]
+			mappedPixels[i+BGR] = o2iInterp(
+                i2oInterp(mappedPixels[i+BGR]) * mapper.OverlapWeight[cnt])
 		}
 	}
-
+    
 	// store pixels to frame
 	outBuffer := make([]uint8, mapper.ProjW*mapper.ProjH*3)
 	cnt := 0
@@ -125,3 +151,5 @@ func ConvertStill(conf *Config) error {
 
 	return nil
 }
+
+
