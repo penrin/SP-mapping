@@ -79,7 +79,9 @@ class ThetaS():
         # take
         url = 'http://192.168.1.1/osc/commands/execute'
         data = json.dumps({"name": "camera.takePicture"}).encode('ascii')
-        res = request.urlopen(url, data)
+        headers = {'Content-Type': 'application/json'}
+        req = request.Request(url=url, data=data, headers=headers)
+        res = request.urlopen(req)
         if self.v:
             print('Took a photo')
         
@@ -133,7 +135,9 @@ class ThetaS():
         data = json.dumps({"name":"camera.getOptions",
             "parameters": {"optionNames": ["fileFormat"]}}
             ).encode('ascii')
-        res = request.urlopen(url, data)
+        headers = {'Content-Type': 'application/json'}
+        req = request.Request(url=url, data=data, headers=headers)
+        res = request.urlopen(req)
         j = json.loads(res.read().decode('utf-8'))
         H = j['results']['options']['fileFormat']['height']
         W = j['results']['options']['fileFormat']['width']
@@ -145,7 +149,9 @@ class ThetaS():
         data = json.dumps({"name":"camera.getOptions",
             "parameters": {"optionNames": ["exposureProgram"]}}
             ).encode('ascii')
-        res = request.urlopen(url, data)
+        headers = {'Content-Type': 'application/json'}
+        req = request.Request(url=url, data=data, headers=headers)
+        res = request.urlopen(req)
         j = json.loads(res.read().decode('utf-8'))
         return j['results']['options']['exposureProgram']
 
@@ -154,7 +160,7 @@ class ThetaS():
         # value:
         # 1: Manural
         # 2: Auto
-        # 3: Aperture priority <--- not supported by THETA S
+        # 3: Aperture priority <--- not supported by THETA S, V
         # 4: shutter speed priority
         # 9: ISO priority
         if value in [1, 2, 4, 9]:
@@ -162,7 +168,9 @@ class ThetaS():
             data = json.dumps({"name":"camera.setOptions",
                 "parameters": {"options": {"exposureProgram": value}}}
                 ).encode('ascii')
-            res = request.urlopen(url, data)
+            headers = {'Content-Type': 'application/json'}
+            req = request.Request(url=url, data=data, headers=headers)
+            res = request.urlopen(req)
             return 0
         else:
             print('Not supported value.')
@@ -174,7 +182,9 @@ class ThetaS():
         data = json.dumps({"name":"camera.getOptions",
             "parameters": {"optionNames": ["isoSupport"]}}
             ).encode('ascii')
-        res = request.urlopen(url, data)
+        headers = {'Content-Type': 'application/json'}
+        req = request.Request(url=url, data=data, headers=headers)
+        res = request.urlopen(req)
         j = json.loads(res.read().decode('utf-8'))
         return j['results']['options']['isoSupport']
     
@@ -186,7 +196,9 @@ class ThetaS():
             data = json.dumps({"name":"camera.setOptions",
                 "parameters": {"options": {"iso": value}}}
                 ).encode('ascii')
-            res = request.urlopen(url, data)
+            headers = {'Content-Type': 'application/json'}
+            req = request.Request(url=url, data=data, headers=headers)
+            res = request.urlopen(req)
             return 0
         else:
             print('Could not set ISO. Support:')
@@ -199,7 +211,9 @@ class ThetaS():
         data = json.dumps({"name":"camera.getOptions",
             "parameters": {"optionNames": ["shutterSpeedSupport"]}}
             ).encode('ascii')
-        res = request.urlopen(url, data)
+        headers = {'Content-Type': 'application/json'}
+        req = request.Request(url=url, data=data, headers=headers)
+        res = request.urlopen(req)
         j = json.loads(res.read().decode('utf-8'))
         return j['results']['options']['shutterSpeedSupport']
     
@@ -220,7 +234,9 @@ class ThetaS():
             data = json.dumps({"name":"camera.setOptions",
                 "parameters": {"options": {"shutterSpeed": value}}}
                 ).encode('ascii')
-            res = request.urlopen(url, data)
+            headers = {'Content-Type': 'application/json'}
+            req = request.Request(url=url, data=data, headers=headers)
+            res = request.urlopen(req)
             return 0
         else:
             print('Could not set shutterSpeed. Support:')
@@ -240,7 +256,9 @@ class ThetaS():
             data = json.dumps({"name":"camera.setOptions",
                 "parameters": {"options": {"whiteBalance": value}}}
                 ).encode('ascii')
-            res = request.urlopen(url, data)
+            headers = {'Content-Type': 'application/json'}
+            req = request.Request(url=url, data=data, headers=headers)
+            res = request.urlopen(req)
             return 0
         else:
             print('Could not set whiteBalance. Support:')
@@ -255,14 +273,16 @@ class ThetaS():
             data = json.dumps({"name":"camera.setOptions",
                 "parameters": {"options": {"_filter": value}}}
                 ).encode('ascii')
-            res = request.urlopen(url, data)
+            headers = {'Content-Type': 'application/json'}
+            req = request.Request(url=url, data=data, headers=headers)
+            res = request.urlopen(req)
             return 0
         else:
             print('Could not set set. Support:')
             print(filterSupport)
             return 1
+
         
-    
     def auto_adjust_exposure(self, filename, iso=100, EV=0):
         # ISO100 priority, daylight
         self.set_exposureProgram(9) # ISO優先
