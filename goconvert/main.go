@@ -78,7 +78,7 @@ func ParseArg(args []string) (*Config, error) {
 	d := parser.String("d", "map", &argparse.Options{Required: true, Help: "path to mapping-table"})
 	o := parser.String("o", "out", &argparse.Options{Required: false, Default: "output.mp4/png", Help: "output filename"})
 	offset := parser.Float("", "offset", &argparse.Options{Required: false, Default: 0.0, Help: "Horizontal offset (unit: degree)"})
-	edgeblur := parser.Float("", "edgeblur", &argparse.Options{Required: false, Default: 0.5, Help: "Edge blur (unit:degree)"})
+	edgeblur := parser.Float("", "edgeblur", &argparse.Options{Required: false, Default: 0.2, Help: "Edge blur (unit:degree)"})
 	contrast := parser.Float("", "contrast", &argparse.Options{Required: false, Default: 1.0, Help: "Contrast"})
 	gamma := parser.Float("", "gamma", &argparse.Options{Required: false, Default: 2.2, Help: "Gamma"})
 	nframes := parser.Int("", "nframes", &argparse.Options{Required: false, Default: 0, Help: "number of frames to video convert"})
