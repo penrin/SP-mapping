@@ -69,7 +69,14 @@ class ThetaS():
         res = request.urlopen(url, data)
         uri = json.loads(res.read().decode('utf-8'))["state"]["_latestFileUrl"]
         return uri
+
     
+    def get_modelname(self):
+        url = 'http://192.168.1.1/osc/info'
+        res = request.urlopen(url)
+        model = json.loads(res.read().decode('utf-8'))['model']
+        return model
+        
     
     def set_stillmode(self):
         # switch to still image capture mode
@@ -82,7 +89,6 @@ class ThetaS():
         res = request.urlopen(req)
         return 
 
-        
 
     def take(self):
         
@@ -340,6 +346,7 @@ if __name__ == '__main__':
     
     
     theta = ThetaS(v=True)
+    print(theta.get_modelname())
     theta.set_stillmode()
     uri = theta.take()
     theta.save(uri)
@@ -360,3 +367,4 @@ if __name__ == '__main__':
         filename = 'Untitled Export/test%d.jpg' % i
         theta.save(uri, filename)
     ''' 
+    

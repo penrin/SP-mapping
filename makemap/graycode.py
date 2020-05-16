@@ -138,7 +138,7 @@ def graycode_projection(proj_list, path, save_pattern=False,
     # THETA
     theta = theta_s.ThetaS()
     theta.set_stillmode()
-    config['camera']['model'] = 'RICOH THETA S'
+    config['camera']['model'] = theta.get_modelname()
     HW = theta.get_imageSize()
     config['camera']['height'] = HW[0]
     config['camera']['width'] = HW[1]
