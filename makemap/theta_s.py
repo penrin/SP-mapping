@@ -69,7 +69,19 @@ class ThetaS():
         res = request.urlopen(url, data)
         uri = json.loads(res.read().decode('utf-8'))["state"]["_latestFileUrl"]
         return uri
-        
+    
+    
+    def set_stillmode(self):
+        # switch to still image capture mode
+        url = 'http://192.168.1.1/osc/commands/execute'
+        data = json.dumps({"name":"camera.setOptions",
+            "parameters": {"options": {"captureMode": "image"}}}
+            ).encode('ascii')
+        headers = {'Content-Type': 'application/json'}
+        req = request.Request(url=url, data=data, headers=headers)
+        res = request.urlopen(req)
+        return 
+
         
 
     def take(self):
@@ -328,6 +340,7 @@ if __name__ == '__main__':
     
     
     theta = ThetaS(v=True)
+    theta.set_stillmode()
     uri = theta.take()
     theta.save(uri)
 
