@@ -1,7 +1,7 @@
 SP-mapping/GoConvert
 ====================
 
-マッピング処理(SP-mapping/convert)の Go 実装版
+逆歪み付加処理(SP-mapping/convert)の Go 実装版
 
 Requirements
 ------------

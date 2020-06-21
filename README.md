@@ -127,7 +127,6 @@ map\_xxxx の中に mapping_table.npz というファイルが作成される。
 
 ```
 $ python convert -i path2input.mp4 -d map_xxxx output_filename.mp4
-
 ```
 
 * `-i`で，正距円筒座標形式の静止画または動画ファイルを指定する。
