@@ -89,12 +89,14 @@ if __name__ == '__main__':
     parser.add_argument('path', help='path to working folder')
     parser.add_argument('-c', '--capture', action='store_true', help='capturing only')
     parser.add_argument('-a', '--analysis', action='store_true', help='analysis only')
-    parser.add_argument('--ev', type=float, default=0.0, help='RICOH THETA exposure compensation')
+    parser.add_argument('--ev', type=float, default=0.0, help='RICOH THETA exposure')
     parser.add_argument('--grey', type=int, default=186, help='Brightness value of reference grey 0--255')
     #parser.add_argument('--rgb', action='store_true', help='using RGB pattern')
     #parser.add_argument('--pn', action='store_true', help='using negative pattern')
     parser.add_argument('--monocolor', action='store_true', help='using mono color pattern')
     parser.add_argument('--posi', action='store_true', help='use only positive pattern (not recommended)')
+    parser.add_argument('--dryrun', action='store_true', help='dry run (do not connect to the THETA)')
+    parser.add_argument('--savepattern', action='store_true', help='save the projection patterns')
     args = parser.parse_args()
     path = args.path
     cap = args.capture
@@ -103,11 +105,12 @@ if __name__ == '__main__':
     GREY_VALUE = args.grey
     BGR = not args.monocolor
     PN = not args.posi
+    DRY = args.dryrun
+    save_pattern = args.savepattern
 
     
     if (cap == False) & (ana == False):
-        cap = True
-        ana = True
+        parser.print_help()
     
     if path[-1] != '/':
         path += '/'
@@ -120,12 +123,16 @@ if __name__ == '__main__':
         projector.inspect_projectors(proj_list)
         if os.name == 'nt':
             print('Windows mode')
-            graycode.graycode_projection(proj_list, path, EV=EV,
-                    GREY_VALUE=GREY_VALUE, BGR=BGR, PN=PN, TK=True)
+            TK = True
         else:
-            graycode.graycode_projection(proj_list, path, EV=EV,
-                    GREY_VALUE=GREY_VALUE, BGR=BGR, PN=PN)
-            
+            TK = False
+        graycode.graycode_projection(
+                proj_list, path,
+                save_pattern=save_pattern, EV=EV,
+                GREY_VALUE=GREY_VALUE, BGR=BGR,
+                PN=PN, TK=TK, DRY=DRY
+                )
+
     # gray-code pattern analysis
     if ana == True:
         screen_list = screen.set_config(path)

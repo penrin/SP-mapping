@@ -127,7 +127,7 @@ def cv_imshow(img):
 
 
 def graycode_projection(proj_list, path, save_pattern=False,
-            EV=0, GREY_VALUE=100, BGR=False, PN=True, TK=False):
+            EV=0, GREY_VALUE=100, BGR=False, PN=True, TK=False, DRY=False):
     
     config = {}
     config['num_projectors'] = len(proj_list)
@@ -136,12 +136,13 @@ def graycode_projection(proj_list, path, save_pattern=False,
     config['parameters'] = {}
     
     # THETA
-    theta = theta_s.ThetaS()
-    theta.set_stillmode()
-    config['camera']['model'] = theta.get_modelname()
-    HW = theta.get_imageSize()
-    config['camera']['height'] = HW[0]
-    config['camera']['width'] = HW[1]
+    if not DRY:
+        theta = theta_s.ThetaS()
+        theta.set_stillmode()
+        config['camera']['model'] = theta.get_modelname()
+        HW = theta.get_imageSize()
+        config['camera']['height'] = HW[0]
+        config['camera']['width'] = HW[1]
     
     # display and caputure
     URI_list = []
@@ -198,13 +199,16 @@ def graycode_projection(proj_list, path, save_pattern=False,
             cv_imshow(disp_img)
         
         # adjust exposure
-        print('Adjusting exposure...', end='')
-        p.start()
-        filename = path + 'auto_proj%d.jpg' % (n + 1)
-        iso, shutter = theta.auto_adjust_exposure(filename, EV=EV)
-        p.end()
-        print('ISO:', iso, ', Shutter:', shutter)
-        
+        if not DRY:
+            print('Adjusting exposure...', end='')
+            p.start()
+            filename = path + 'auto_proj%d.jpg' % (n + 1)
+            iso, shutter = theta.auto_adjust_exposure(filename, EV=EV)
+            p.end()
+            print('ISO:', iso, ', Shutter:', shutter)
+        else:
+            time.sleep(0.5)
+            
         
         print('Caputuring...', end='')
         p.start()
@@ -214,10 +218,13 @@ def graycode_projection(proj_list, path, save_pattern=False,
             ポジネガモードを使わない場合，
             01判定の基準用にグレー画像を撮影。
             '''
-            URI = theta.take()
-            URI_list.append(URI)
-            filename = 'gray_proj%d_grey.jpg' % (n + 1)
-            filename_list.append(filename)
+            if not DRY:
+                URI = theta.take()
+                URI_list.append(URI)
+                filename = 'gray_proj%d_grey.jpg' % (n + 1)
+                filename_list.append(filename)
+            else:
+                time.sleep(0.5)
         
         # x-axis
         ret = graycodepattern(proj.aspect, axis='x', BGR=BGR)
@@ -238,11 +245,13 @@ def graycode_projection(proj_list, path, save_pattern=False,
             else:
                 cv_imshow(disp_img)
 
-            
-            URI = theta.take()
-            URI_list.append(URI)
-            filename = 'gray_proj%d_x%d_posi.jpg' % (n + 1, i)
-            filename_list.append(filename)
+            if not DRY:
+                URI = theta.take()
+                URI_list.append(URI)
+                filename = 'gray_proj%d_x%d_posi.jpg' % (n + 1, i)
+                filename_list.append(filename)
+            else:
+                time.sleep(0.5)
             
             # display & capture (nega-pattern)
             if PN == True:
@@ -255,11 +264,13 @@ def graycode_projection(proj_list, path, save_pattern=False,
                 else:
                     cv_imshow(disp_img)
 
-                
-                URI = theta.take()
-                URI_list.append(URI)
-                filename = 'gray_proj%d_x%d_nega.jpg' % (n + 1, i)
-                filename_list.append(filename)
+                if not DRY:
+                    URI = theta.take()
+                    URI_list.append(URI)
+                    filename = 'gray_proj%d_x%d_nega.jpg' % (n + 1, i)
+                    filename_list.append(filename)
+                else:
+                    time.sleep(0.5)
                     
 
         config_sub['xgraycode_BGR'] = BGR
@@ -286,11 +297,13 @@ def graycode_projection(proj_list, path, save_pattern=False,
             else:
                 cv_imshow(disp_img)
 
-            
-            URI = theta.take()
-            URI_list.append(URI)
-            filename = 'gray_proj%d_y%d_posi.jpg' % (n + 1, i)
-            filename_list.append(filename)
+            if not DRY:
+                URI = theta.take()
+                URI_list.append(URI)
+                filename = 'gray_proj%d_y%d_posi.jpg' % (n + 1, i)
+                filename_list.append(filename)
+            else:
+                time.sleep(0.5)
             
             # display & capture (nega-pattern)
             if PN == True:
@@ -303,11 +316,13 @@ def graycode_projection(proj_list, path, save_pattern=False,
                 else:
                     cv_imshow(disp_img)
 
-                
-                URI = theta.take()
-                URI_list.append(URI)
-                filename = 'gray_proj%d_y%d_nega.jpg' % (n + 1, i)
-                filename_list.append(filename)
+                if not DRY:
+                    URI = theta.take()
+                    URI_list.append(URI)
+                    filename = 'gray_proj%d_y%d_nega.jpg' % (n + 1, i)
+                    filename_list.append(filename)
+                else:
+                    time.sleep(0.5)
 
         config_sub['ygraycode_BGR'] = BGR
         config_sub['ygraycode_PN'] = PN
@@ -323,19 +338,20 @@ def graycode_projection(proj_list, path, save_pattern=False,
     else:
         cv2.destroyWindow(CV_DISP_NAME)
     
-    # save config
-    filename = path + 'graycode_config.json'
-    with open(filename, 'w') as f:
-        json.dump(config, f, indent=4)
-    
-    
-    # save images
-    print('---------------')
-    print('save images')
-    pg = util.ProgressBar2(len(filename_list))    
-    for i in range(len(filename_list)):
-        theta.save(URI_list[i], path + filename_list[i])
-        pg.bar()
+    if not DRY:
+        # save config
+        filename = path + 'graycode_config.json'
+        with open(filename, 'w') as f:
+            json.dump(config, f, indent=4)
+        
+        
+        # save images
+        print('---------------')
+        print('save images')
+        pg = util.ProgressBar2(len(filename_list))    
+        for i in range(len(filename_list)):
+            theta.save(URI_list[i], path + filename_list[i])
+            pg.bar()
 
 
 
