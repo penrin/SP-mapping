@@ -564,7 +564,7 @@ func StorePixels(
 ) <-chan []uint8 {
 	storeIndex := mapper.StoreIndex
 	L := mapper.ProjW * mapper.ProjH * 3
-	nBitShift := int(math.Log2(float64(STEP_STREAM / 256)))
+	nBitShift := uint(math.Log2(float64(STEP_STREAM / 256)))
 
 	// process
 	outputStream := make(chan []uint8, BUFFER_SIZE)
