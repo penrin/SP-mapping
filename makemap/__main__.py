@@ -125,7 +125,9 @@ if __name__ == '__main__':
             print('Windows mode')
             TK = True
         else:
-            TK = False
+            #TK = False
+            TK = True
+        
         graycode.graycode_projection(
                 proj_list, path,
                 save_pattern=save_pattern, EV=EV,
