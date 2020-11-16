@@ -147,9 +147,14 @@ $ python convert -i path2input.mp4 -d map_xxxx output_filename.mp4
 
 ### オプション
 
-#### --offset
+#### --hshift
 投影像の水平回転方向のマッピング位置を調整する。単位は度。
 右回転方向にシフトするには正の値をいれる。デフォルト値は 0.0 としている。
+
+#### --vshift
+投影方向を縦方向にシフトする。単位は度。
+上方向にシフトするには正の値をいれる。デフォルト値は 0.0 としている。
+大きくシフトさせると歪むため，投影方向の再現性を重視する場合には使用しない。
 
 #### --edgeblur
 画像上下のエッジをぼかす。指定した角度の範囲について，エッジに向けて徐々に輝度を落とす。
@@ -179,8 +184,9 @@ $ python convert -i path2input.mp4 -d map_xxxx output_filename.mp4
 
 ```
 $ python convert -h
-usage: convert [-h] -i I -d D [--offset OFFSET] [--edgeblur EDGEBLUR]
-               [--nframes NFRAMES] [--contrast CONTRAST] [--gamma GAMMA]
+usage: convert [-h] -i I -d D [--hshift HSHIFT] [--vshift VSHIFT]
+               [--edgeblur EDGEBLUR] [--nframes NFRAMES] [--contrast CONTRAST]
+               [--gamma GAMMA] [-T]
                filename
 
 positional arguments:
@@ -190,11 +196,13 @@ optional arguments:
   -h, --help           show this help message and exit
   -i I                 input image or movie filename
   -d D                 path to working folder
-  --offset OFFSET      Horizontal offset (default: 0.0, unit: degree)
+  --hshift HSHIFT      Horizontal shift (default: 0.0, unit: degree)
+  --vshift VSHIFT      Vertical shift (default: 0.0, unit: degree)
   --edgeblur EDGEBLUR  Edge blur (default: 0.5, unit:degree)
   --nframes NFRAMES    number of frames to video convert
   --contrast CONTRAST  Contrast (default: Gamma 1.0)
   --gamma GAMMA        Gamma (default: 2.2)
+  -T                   Measure each process time
 ```
 
 

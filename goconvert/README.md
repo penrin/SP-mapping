@@ -55,27 +55,12 @@ $ goconvert -d map_xxxxxx -i input.mp4
 `-o -` をつけると rawvideo ストリームが標準出力に書き込まれ，ffmpeg にパイプ入力することができる。ffmpeg 側で詳細なエンコード設定が可能。このとき NVENC(Windows/Linux) や VideoToolbox(macOS) などのハードウェアエンコードすると，CPU リソースを goconvert 側に割けるので処理速度向上が期待できる。
 
 
-オプション`--ffmpeg-template`により ffmpeg のオプションの雛形を提示する。雛形には画像サイズやフレームレートが反映されている。
+オプション`--ffmpeg-template`または`-f`により ffmpeg のオプションの雛形を提示する。雛形には画像サイズやフレームレートが反映されている。
 
 ```
 $ goconvert -i input.mp4 -d map_xxxx --ffmpeg-template 
-ffmpeg template:
-goconvert -i input.mp4 -d map_xxxx -o - | ffmpeg -f rawvideo -pix_fmt bgr24 -s 3840x2160 -framerate 60 -i - output.mp4
-```
-
-VideoToolbox を利用するコマンド例 (macOS)：
-
-```
 ./goconvert -i input.mp4 -d map_xxxx -o - | ffmpeg -f rawvideo -pix_fmt bgr24 -s 3840x2160 -framerate 60 -i - -c:v h264_videotoolbox -b:v 60M output.mp4
 ```
-
-NVENC を利用するコマンド例 (Windows/Linux)：
-
-```
-./goconvert.exe -i input.mp4 -d map_xxxx -o - | ffmpeg -f rawvideo -pix_fmt bgr24 -s 3840x2160 -framerate 60 -i - -c:v h264_nvenc -b:v 60M output.mp4
-```
-
-
 
 
 
@@ -93,3 +78,4 @@ Tasks to be done
 
 
 
+ 
