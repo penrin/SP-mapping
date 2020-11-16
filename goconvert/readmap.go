@@ -283,7 +283,7 @@ func PrepareMapping(conf *Config, inputWH []int) (*Mapper, error) {
 	x2 := make([]int, L)
 	xPixPerDeg := float64(inputWH[0]) / 360
 	for i := 0; i < L; i++ {
-		xSub[i] = (mapTable.Azimuth[i] - conf.Offset) * xPixPerDeg
+		xSub[i] = (mapTable.Azimuth[i] - conf.ShiftX) * xPixPerDeg
 		x1[i] = int(math.Floor(xSub[i])) // round down to the nearest decimal
 		x2[i] = x1[i] + 1
 	}
@@ -292,7 +292,7 @@ func PrepareMapping(conf *Config, inputWH []int) (*Mapper, error) {
 	y2 := make([]int, L)
 	yPixPerDeg := float64(inputWH[1]) / 180
 	for i := 0; i < L; i++ {
-		ySub[i] = mapTable.Polar[i] * yPixPerDeg
+		ySub[i] = (mapTable.Polar[i] + conf.ShiftY) * yPixPerDeg
 		y1[i] = int(math.Floor(ySub[i])) // round down to the nearest decimal
 		y2[i] = y1[i] + 1
 	}

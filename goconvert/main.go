@@ -59,7 +59,8 @@ type Config struct {
 	InputFileName      string
 	OutputFileName     string
 	PathToMappingTable string
-	Offset             float64
+	ShiftX             float64
+	ShiftY             float64
 	EdgeBlur           float64
 	Contrast           float64
 	Gamma              float64
@@ -77,7 +78,8 @@ func ParseArg(args []string) (*Config, error) {
 	i := parser.String("i", "in", &argparse.Options{Required: true, Help: "path to input still/movie image file"})
 	d := parser.String("d", "map", &argparse.Options{Required: true, Help: "path to mapping-table"})
 	o := parser.String("o", "out", &argparse.Options{Required: false, Default: "output.mp4/png", Help: "output filename"})
-	offset := parser.Float("", "offset", &argparse.Options{Required: false, Default: 0.0, Help: "Horizontal offset (unit: degree)"})
+	hshift := parser.Float("", "hshift", &argparse.Options{Required: false, Default: 0.0, Help: "Horizontal offset (unit: degree)"})
+	vshift := parser.Float("", "vshift", &argparse.Options{Required: false, Default: 0.0, Help: "Vertical offset (unit: degree)"})
 	edgeblur := parser.Float("", "edgeblur", &argparse.Options{Required: false, Default: 0.2, Help: "Edge blur (unit:degree)"})
 	contrast := parser.Float("", "contrast", &argparse.Options{Required: false, Default: 1.0, Help: "Contrast"})
 	gamma := parser.Float("", "gamma", &argparse.Options{Required: false, Default: 2.2, Help: "Gamma"})
@@ -99,7 +101,8 @@ func ParseArg(args []string) (*Config, error) {
 		InputFileName:      *i,
 		OutputFileName:     *o,
 		PathToMappingTable: *d,
-		Offset:             *offset,
+		ShiftX:             *hshift,
+		ShiftY:             *vshift,
 		EdgeBlur:           *edgeblur,
 		Contrast:           *contrast,
 		Gamma:              *gamma,

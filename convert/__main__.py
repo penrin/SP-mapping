@@ -99,8 +99,8 @@ def convert_image():
     sph_HW = img.shape[0], img.shape[1]
     proj_x = mapper['x']
     proj_y = mapper['y']
-    sph_x = (mapper['azimuth'] - offset_x) * sph_HW[1] / 360
-    sph_y = mapper['polar'] * sph_HW[0] / 180
+    sph_x = (mapper['azimuth'] - shift_x) * sph_HW[1] / 360
+    sph_y = (mapper['polar'] + shift_y) * sph_HW[0] / 180
 
     sx1 = (np.floor(sph_x) + 1).astype(np.int32)
     sx2 = np.floor(sph_x).astype(np.int32)
@@ -193,9 +193,9 @@ def convert_video():
 
     proj_x = mapper['x']
     proj_y = mapper['y']
-    sph_x = (mapper['azimuth'] - offset_x) * sph_HW[1] / 360
-    sph_y = mapper['polar'] * sph_HW[0] / 180
-    
+    sph_x = (mapper['azimuth'] - shift_x) * sph_HW[1] / 360
+    sph_y = (mapper['polar'] + shift_y) * sph_HW[0] / 180
+
     sx1 = (np.floor(sph_x) + 1).astype(np.int32)
     sx2 = np.floor(sph_x).astype(np.int32)
     sy1 = (np.floor(sph_y) + 1).astype(np.int32)
@@ -404,7 +404,8 @@ if __name__ == '__main__':
     parser.add_argument('filename', help='output filename')
     parser.add_argument('-i', type=str, help='input image or movie filename', required=True)
     parser.add_argument('-d', type=str, help='path to working folder', required=True)
-    parser.add_argument('--offset', type=float, default=0.0, help='Horizontal offset (default: 0.0, unit: degree)')
+    parser.add_argument('--hshift', type=float, default=0.0, help='Horizontal shift (default: 0.0, unit: degree)')
+    parser.add_argument('--vshift', type=float, default=0.0, help='Vertical shift (default: 0.0, unit: degree)')
     parser.add_argument('--edgeblur', type=float, default=0.2, help='Edge blur (default: 0.5, unit:degree)')
     parser.add_argument('--nframes', type=int, default=0, help='number of frames to video convert')
     parser.add_argument('--contrast', type=float, default=1.0, help='Contrast (default: Gamma 1.0)')
@@ -418,7 +419,8 @@ if __name__ == '__main__':
     gamma = args.gamma
     contrast = args.contrast
     nframes_ = args.nframes
-    offset_x = args.offset
+    shift_x = args.hshift
+    shift_y = args.vshift
     edgeblur = args.edgeblur
     measure_time = args.T
     
