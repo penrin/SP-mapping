@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+    "runtime"
 
 	"gocv.io/x/gocv"
 )
@@ -51,10 +52,19 @@ func showFfmpegTemplate(conf *Config) error {
 	size := fmt.Sprintf("-s %dx%d", projW, projH)
 	vfmt := "-f rawvideo -pix_fmt bgr24"
 	fps := fmt.Sprintf("-framerate %f", capture.Get(gocv.VideoCaptureFPS))
-	ffmpeg := fmt.Sprintf("ffmpeg %s %s %s -i - output.mp4", vfmt, size, fps)
-	cmd := base + ffmpeg
+	ffmpeg := fmt.Sprintf("ffmpeg %s %s %s -i - ", vfmt, size, fps)
+    
+    var codec string
+    if runtime.GOOS == "windows" {
+        codec = "-c:v h264_nvenc -b:v 60M "
+    } else if runtime.GOOS == "darwin" {
+        codec = "-c:v h264_videotoolbox -b:v 60M "
+    } else {
+        codec = ""        
+    }
+	cmd := base + ffmpeg + codec + "output.mp4"
 
-	fmt.Printf("template for ffmpeg:\n%s\n", cmd)
+	fmt.Printf("%s\n", cmd)
 	return nil
 }
 
