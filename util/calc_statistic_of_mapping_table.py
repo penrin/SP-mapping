@@ -4,6 +4,7 @@ import cv2
 
 
 fname = 'path/to/mapping_table.npz'
+fname = '/Users/penrin/Desktop/map_gic201112/mapping_table.npz'
 
 
 
@@ -38,6 +39,11 @@ image[y, x] = 50
 print('Used pixels:')
 print('   %d/%d' % (len(x), proj_HW[0] * proj_HW[1]), end='')
 print(' ({:.1%})'.format(len(x) / (proj_HW[0] * proj_HW[1])))
+
+
+text = 'used: %d/%d' % (len(x), proj_HW[0] * proj_HW[1])
+text += ' ({:.1%})'.format(len(x) / (proj_HW[0] * proj_HW[1]))
+cv2.putText(image, text, (0, proj_HW[0] - 1), font, 0.8, (255,255,255), 1)
 
 
 
